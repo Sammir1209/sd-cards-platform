@@ -26,7 +26,10 @@ $RECYCLE.BIN/
 .DS_Store
 
 # Temporary files & logs
+*.db-shm
+*.db-wal
 *.log
 *.tmp
 *.temp
 scratch/
+
