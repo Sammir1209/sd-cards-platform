@@ -1,0 +1,87 @@
+@model NfcMenuSaas.Models.Business
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = Model.Name + " - Deja tu Reseña";
+    var primary = string.IsNullOrEmpty(Model.PrimaryColor) ? "#2563EB" : Model.PrimaryColor;
+    var targetUrl = !string.IsNullOrEmpty(Model.GoogleMapsUrl) 
+        ? Model.GoogleMapsUrl 
+        : $"https://www.google.com/maps/search/?api=1&query={System.Net.WebUtility.UrlEncode(Model.Name + " " + (Model.City ?? ""))}";
+}
+
+<style>
+    :root {
+        --brand-color: @primary;
+    }
+    .bg-brand { background-color: var(--brand-color); }
+    .text-brand { color: var(--brand-color); }
+</style>
+
+<main class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 relative">
+    <div class="w-48 h-48 rounded-full bg-brand/10 absolute -top-10 -right-10 blur-3xl pointer-events-none"></div>
+    <div class="w-48 h-48 rounded-full bg-blue-400/10 absolute -bottom-10 -left-10 blur-3xl pointer-events-none"></div>
+
+    <div class="relative z-10 w-full max-w-sm flex flex-col items-center">
+        <!-- Logo del Negocio o Letra Inicial -->
+        @if (!string.IsNullOrEmpty(Model.LogoUrl))
+        {
+            <img src="@Model.LogoUrl" alt="@Model.Name" class="w-24 h-24 rounded-3xl object-cover shadow-xl ring-4 ring-slate-100 mb-5" />
+        }
+        else
+        {
+            <div class="w-24 h-24 rounded-3xl bg-brand text-white flex items-center justify-center text-4xl font-extrabold shadow-xl ring-4 ring-slate-100 mb-5">
+                @Model.Name.Substring(0, 1).ToUpper()
+            </div>
+        }
+
+        <h1 class="text-2xl font-black text-slate-900 tracking-tight leading-snug">@Model.Name</h1>
+        @if (!string.IsNullOrEmpty(Model.City))
+        {
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 mt-1">
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                @Model.City
+            </span>
+        }
+        <p class="text-xs text-slate-500 mt-2">¡Tu opinión nos ayuda a seguir brindándote la mejor atención!</p>
+
+        <!-- Indicador de 5 Estrellas con SVG -->
+        <div class="flex items-center justify-center gap-1.5 my-6">
+            @for (int i = 0; i < 5; i++)
+            {
+                <svg class="w-8 h-8 text-amber-400 fill-current drop-shadow-sm transition transform hover:scale-110" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+            }
+        </div>
+
+        <p class="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-full px-4 py-1.5 mb-6">
+            Califica con 5 estrellas en 5 segundos
+        </p>
+
+        <!-- Botón de Redirección Manual / Fallback si el navegador móvil bloqueó el popup -->
+        <a id="btnRedirect" href="@targetUrl" class="w-full py-4 px-6 rounded-2xl bg-brand text-white font-black text-sm shadow-xl shadow-brand/30 flex items-center justify-center gap-2.5 transition active:scale-[0.98]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            <span>Abrir Google Maps para Calificar</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </a>
+
+        <p class="text-[10px] text-slate-400 mt-5">
+            Redirección oficial mediante tarjeta de proximidad NFC • S & D
+        </p>
+    </div>
+</main>
+
+@section Scripts {
+    <script>
+        // Disparador automático inteligente en clientes móviles:
+        // Intenta abrir el enlace nativo de Google Maps inmediatamente
+        (function() {
+            var url = "@Html.Raw(targetUrl)";
+            if (url && url.length > 5) {
+                // Pequeño retardo de 250ms para permitir que el motor de renderizado de Safari/Chrome móvil registre el toque
+                setTimeout(function() {
+                    window.location.href = url;
+                }, 300);
+            }
+        })();
+    </script>
+}

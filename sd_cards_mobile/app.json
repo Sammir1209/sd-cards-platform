@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "sd_cards_mobile",
+    "slug": "sd_cards_mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sdcards.mobile",
+      "infoPlist": {
+        "NFCReaderUsageDescription": "Permite a S & D Company Cards programar y verificar tarjetas NFC físicas para mesas y reseñas",
+        "NSCameraUsageDescription": "Permite a S & D Company Cards escanear códigos de tarjetas físicas para su vinculación y diagnóstico."
+      },
+      "entitlements": {
+        "com.apple.developer.nfc.readersession.formats": [
+          "NDEF",
+          "TAG"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.sdcards.mobile",
+      "permissions": [
+        "android.permission.NFC",
+        "android.permission.CAMERA"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "Permite a S & D Company Cards programar y verificar tarjetas NFC físicas para mesas y reseñas"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite a S & D Company Cards escanear códigos de tarjetas físicas para su vinculación y diagnóstico."
+        }
+      ],
+      "expo-sharing"
+    ]
+  }
+}

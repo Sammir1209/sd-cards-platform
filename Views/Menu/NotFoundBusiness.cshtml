@@ -1,0 +1,17 @@
+@model string
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = "Negocio No Encontrado";
+}
+
+<div class="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
+    <div class="w-16 h-16 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center text-2xl font-bold mb-4">
+        ✕
+    </div>
+    <h1 class="text-xl font-bold text-slate-800">Negocio no encontrado</h1>
+    <p class="text-sm text-slate-500 mt-2 max-w-xs">
+        No pudimos encontrar ningún menú o negocio registrado con el identificador:
+        <span class="font-mono bg-slate-100 px-2 py-0.5 rounded text-rose-600 block mt-2 font-bold">@Model</span>
+    </p>
+</div>
+

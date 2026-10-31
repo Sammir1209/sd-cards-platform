@@ -1,0 +1,193 @@
+@model List<NfcMenuSaas.Models.Business>
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = "SuperAdmin - S & D - Company Cards";
+}
+
+<!-- Header Ejecutivo S & D -->
+<header class="bg-slate-950 text-white px-5 py-5 border-b border-white/10 shadow-xl">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-base shadow-lg shadow-blue-500/30">
+                SD
+            </div>
+            <div>
+                <h1 class="text-sm font-black tracking-tight leading-none">S & D - COMPANY CARDS</h1>
+                <span class="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">Centro de Provisión de Chips</span>
+            </div>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            NTAG215 Online
+        </span>
+    </div>
+
+    <!-- Métricas Clave -->
+    <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-white/10">
+        <div class="bg-white/5 rounded-xl p-2.5">
+            <span class="text-[10px] text-slate-400 block">Tarjetas Totales</span>
+            <span class="text-lg font-black text-white">@ViewBag.TotalCards</span>
+        </div>
+        <div class="bg-white/5 rounded-xl p-2.5">
+            <span class="text-[10px] text-slate-400 block">Lecturas (Taps)</span>
+            <span class="text-lg font-black text-blue-400">@ViewBag.TotalTaps</span>
+        </div>
+    </div>
+</header>
+
+<div class="p-4 space-y-6">
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold">
+            ✓ @TempData["Success"]
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold">
+            ⚠️ @TempData["Error"]
+        </div>
+    }
+
+    <!-- FORMULARIO: REGISTRAR CLIENTE Y AUTOGENERAR GOOGLE MAPS -->
+    <section class="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div>
+            <h2 class="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                Registrar Cliente & Generar Chips NFC
+            </h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">El sistema calcula automáticamente la URL de Google Maps para abrir el diálogo de 5 estrellas en móviles.</p>
+        </div>
+
+        <form method="post" action="/superadmin/create-client" class="space-y-3">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Nombre del Negocio (Comprador)</label>
+                <input type="text" name="name" placeholder="Ej. Pollería Bendiez, Cevichería El Muelle" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Ciudad / Distrito</label>
+                    <input type="text" name="city" placeholder="Ej. Lima, Miraflores, Arequipa" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Slug URL</label>
+                    <input type="text" name="slug" placeholder="polleria-bendiez" required class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Google Place ID (Opcional)</label>
+                    <input type="text" name="placeId" placeholder="ChIJN1t_tDeuEms..." class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Dominio Propio (Opcional)</label>
+                    <input type="text" name="customDomain" placeholder="ben10.com.pe" class="w-full px-3 py-2 text-xs font-mono rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Nombre del Dueño</label>
+                    <input type="text" name="ownerName" placeholder="Juan Pérez" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">WhatsApp / Celular</label>
+                    <input type="text" name="ownerPhone" placeholder="+51 999 888 777" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Rubro de Negocio</label>
+                    <select name="sector" class="w-full px-2 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none font-bold">
+                        @foreach (var sec in Enum.GetValues<NfcMenuSaas.Models.BusinessSector>())
+                        {
+                            <option value="@sec">@sec</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Tipo de Tarjeta</label>
+                    <select name="templateType" class="w-full px-2 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none font-bold">
+                        <option value="GoogleReviews">Reseñas de Google Maps</option>
+                        <option value="MenuDigital">Menú Digital Online</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Cantidad de Tarjetas Físicas a Generar</label>
+                <input type="number" name="cardQuantity" value="3" min="1" max="50" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold" />
+            </div>
+
+            <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-500/30 transition active:scale-95 flex items-center justify-center gap-2">
+                <span>+ Crear Cliente & Generar Enlaces de Google</span>
+            </button>
+        </form>
+    </section>
+
+    <!-- LISTADO DE NEGOCIOS Y TARJETAS FÍSICAS -->
+    <section class="space-y-4">
+        <h2 class="text-xs font-black uppercase tracking-wider text-slate-700">Compradores y Lotes NFC</h2>
+
+        @foreach (var b in Model)
+        {
+            <div class="bg-white rounded-3xl border border-slate-200 p-4 shadow-sm space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="font-extrabold text-sm text-slate-900 leading-tight">@b.Name</h3>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">@b.Sector</span>
+                            @if (!string.IsNullOrEmpty(b.City))
+                            {
+                                <span class="text-[10px] font-medium text-slate-500">@b.City</span>
+                            }
+                            <span class="text-[10px] font-semibold text-slate-400">@b.Cards.Count tarjetas</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(b.GoogleMapsUrl))
+                        {
+                            <span class="text-[10px] font-mono text-emerald-600 block mt-1 truncate max-w-xs">
+                                @b.GoogleMapsUrl
+                            </span>
+                        }
+                    </div>
+                    <a href="/admin/@b.Id" class="px-2.5 py-1.5 rounded-xl bg-slate-900 text-white text-[10px] font-bold">
+                        Panel
+                    </a>
+                </div>
+
+                <div class="space-y-2">
+                    @foreach (var card in b.Cards)
+                    {
+                        <div class="p-2.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-mono text-xs font-extrabold text-blue-700">@card.CardCode</span>
+                                    <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold @(card.IsConfigured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")">
+                                        @(card.IsConfigured ? "Activa" : "Pendiente")
+                                    </span>
+                                </div>
+                                <p class="text-[10px] text-slate-500 font-mono truncate mt-0.5">
+                                    URL Chip: <span class="text-slate-800 font-bold">/t/@card.CardCode</span>
+                                </p>
+                            </div>
+
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span class="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                                    @card.TapCount taps
+                                </span>
+                                <a href="/t/@card.CardCode" target="_blank" class="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold" title="Probar Tarjeta">
+                                    ↗
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </section>
+
+</div>

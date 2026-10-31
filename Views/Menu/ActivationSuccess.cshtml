@@ -1,0 +1,31 @@
+@model NfcMenuSaas.Models.NfcCard
+@{
+    Layout = "_PublicLayout";
+    ViewData["Title"] = "¡Tarjeta Activada! - S & D - Company Cards";
+}
+
+<main class="flex-1 flex flex-col items-center justify-center text-center p-6">
+    <div class="w-20 h-20 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-3xl font-extrabold mb-4 shadow-inner">
+        ✓
+    </div>
+
+    <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100/60 px-3 py-1 rounded-full mb-2">
+        Activación Exitosa
+    </span>
+
+    <h1 class="text-2xl font-black text-slate-900">¡Tarjeta Lista para Operar!</h1>
+    <p class="text-xs text-slate-500 mt-2 max-w-xs leading-relaxed">
+        La tarjeta <span class="font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">@Model.CardCode</span> de <strong>@Model.Business.Name</strong> ya está vinculada en la nube.
+    </p>
+
+    <div class="my-6 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-left text-xs space-y-1.5 w-full">
+        <p class="font-bold text-slate-700">A partir de ahora:</p>
+        <p class="text-slate-500">[OK] Cada cliente que toque esta tarjeta con su celular irá directamente a Google Maps a calificar con 5 estrellas.</p>
+        <p class="text-slate-500">[SEGURIDAD] Nadie podrá modificar tu enlace sin tu PIN de seguridad.</p>
+    </div>
+
+    <a href="/t/@Model.CardCode" class="w-full py-3.5 bg-slate-900 text-white font-bold rounded-2xl text-xs shadow-lg hover:bg-slate-800 transition">
+        Probar Redirección de la Tarjeta ↗
+    </a>
+</main>
+

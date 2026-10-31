@@ -1,0 +1,23 @@
+{
+  "name": "S & D - Company Cards",
+  "short_name": "S&D Cards",
+  "description": "Plataforma de gestión de tarjetas inteligentes NFC, Menús y Reseñas",
+  "start_url": "/admin/1",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/fluency/192/nfc-tag.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://img.icons8.com/fluency/512/nfc-tag.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+

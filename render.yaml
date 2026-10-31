@@ -1,0 +1,17 @@
+# ==============================================================================
+# Blueprint de Infraestructura para Render (render.yaml)
+# ==============================================================================
+services:
+  - type: web
+    name: sd-cards-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: PUBLIC_APP_URL
+        sync: false
+
