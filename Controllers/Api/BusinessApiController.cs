@@ -7,6 +7,8 @@ namespace NfcMenuSaas.Controllers.Api;
 
 [ApiController]
 [Route("api/[controller]")]
+[Route("api/business")]
+[Route("businessapi")]
 public class BusinessApiController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -30,14 +32,21 @@ public class BusinessApiController : ControllerBase
                 b.OwnerPhone,
                 b.OwnerEmail,
                 b.AccessPassword,
+                b.Ruc,
+                b.Department,
+                b.Province,
+                b.District,
                 b.City,
                 b.Address,
+                b.PlanMonths,
+                b.PlanExpiryDate,
                 b.TemplateType,
                 b.IsActive,
                 b.IsArchived,
                 b.WhatsappOptIn,
                 b.LastNotificationAt,
-                CardsCount = b.Cards.Count
+                CardsCount = b.Cards.Count,
+                TotalTaps = b.Cards.Sum(c => c.TapCount)
             })
             .ToListAsync();
 
@@ -62,8 +71,14 @@ public class BusinessApiController : ControllerBase
             b.OwnerPhone,
             b.OwnerEmail,
             b.AccessPassword,
+            b.Ruc,
+            b.Department,
+            b.Province,
+            b.District,
             b.City,
             b.Address,
+            b.PlanMonths,
+            b.PlanExpiryDate,
             b.GoogleMapsUrl,
             b.AutoRedirectReviews,
             b.CustomDomain,
@@ -101,7 +116,8 @@ public class BusinessApiController : ControllerBase
                 success = true,
                 role = "superadmin",
                 email = cleanEmail,
-                name = "Samir Conter"
+                name = "Samir Conter",
+                token = "SD-AUTH-" + Guid.NewGuid().ToString("N")
             });
         }
 
@@ -133,7 +149,8 @@ public class BusinessApiController : ControllerBase
             ownerName = business.OwnerName,
             email = business.OwnerEmail ?? cleanEmail,
             slug = business.Slug,
-            templateType = (int)business.TemplateType
+            templateType = (int)business.TemplateType,
+            token = "SD-AUTH-" + Guid.NewGuid().ToString("N")
         });
     }
 
@@ -164,6 +181,8 @@ public class BusinessApiController : ControllerBase
             ? $"SD#{random.Next(1000, 9999)}!Pass"
             : request.Password.Trim();
 
+        int planMonths = request.PlanMonths.HasValue && request.PlanMonths.Value > 0 ? request.PlanMonths.Value : 12;
+
         var business = new Business
         {
             Name = request.Name.Trim(),
@@ -172,8 +191,15 @@ public class BusinessApiController : ControllerBase
             OwnerPhone = request.Phone?.Trim() ?? "",
             OwnerEmail = request.Email?.Trim().ToLower(),
             AccessPassword = cleanPassword,
+            Ruc = request.Ruc?.Trim(),
+            Department = request.Department?.Trim(),
+            Province = request.Province?.Trim(),
+            District = request.District?.Trim(),
             City = request.City?.Trim() ?? "Lima",
             Address = request.Address?.Trim() ?? "",
+            PlanMonths = planMonths,
+            PlanExpiryDate = DateTime.UtcNow.AddMonths(planMonths),
+            GoogleMapsUrl = NfcMenuSaas.Services.GoogleReviewUrlBuilder.BuildReviewUrl(request.Name.Trim(), request.City?.Trim() ?? "Lima", null, null),
             TemplateType = (TemplateType)request.Services,
             IsActive = true
         };
@@ -418,6 +444,114 @@ public class BusinessApiController : ControllerBase
             message = "Plan y servicios del negocio actualizados exitosamente."
         });
     }
+
+    /// <summary>
+    /// Edición integral de datos del cliente (nombre, teléfono, RUC/DNI, departamento, provincia, distrito, estado activo/pausado, plan)
+    /// </summary>
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> UpdateBusiness(int id, [FromBody] UpdateBusinessRequest request)
+    {
+        var business = await _context.Businesses
+            .Include(b => b.Cards)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        if (business == null) return NotFound(new { error = "Negocio no encontrado." });
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            business.Name = request.Name.Trim();
+        }
+
+        if (request.OwnerName != null) business.OwnerName = request.OwnerName.Trim();
+        if (request.Phone != null) business.OwnerPhone = request.Phone.Trim();
+        if (request.Email != null) business.OwnerEmail = request.Email.Trim().ToLower();
+        if (!string.IsNullOrWhiteSpace(request.Password)) business.AccessPassword = request.Password.Trim();
+        if (request.Ruc != null) business.Ruc = request.Ruc.Trim();
+        if (request.Department != null) business.Department = request.Department.Trim();
+        if (request.Province != null) business.Province = request.Province.Trim();
+        if (request.District != null) business.District = request.District.Trim();
+        if (request.Address != null) business.Address = request.Address.Trim();
+
+        if (!string.IsNullOrWhiteSpace(request.City))
+        {
+            business.City = request.City.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(request.District) && !string.IsNullOrWhiteSpace(request.Department))
+        {
+            business.City = $"{request.District.Trim()}, {request.Province?.Trim()} - {request.Department.Trim()}";
+        }
+
+        if (request.PlanMonths.HasValue && request.PlanMonths.Value > 0)
+        {
+            business.PlanMonths = request.PlanMonths.Value;
+            business.PlanExpiryDate = business.CreatedAt.AddMonths(business.PlanMonths);
+        }
+
+        if (request.Services.HasValue && request.Services.Value >= 1 && request.Services.Value <= 3)
+        {
+            business.TemplateType = (TemplateType)request.Services.Value;
+        }
+
+        if (request.IsActive.HasValue && request.IsActive.Value != business.IsActive)
+        {
+            business.IsActive = request.IsActive.Value;
+            business.IsArchived = !business.IsActive;
+
+            foreach (var card in business.Cards)
+            {
+                if (business.IsActive)
+                {
+                    if (card.Status == CardStatus.SUSPENDED)
+                    {
+                        card.Status = CardStatus.ACTIVE;
+                        card.IsActive = true;
+                    }
+                }
+                else
+                {
+                    if (card.Status == CardStatus.ACTIVE)
+                    {
+                        card.Status = CardStatus.SUSPENDED;
+                        card.IsActive = false;
+                    }
+                }
+            }
+        }
+
+        if (request.GoogleMapsUrl != null)
+        {
+            business.GoogleMapsUrl = string.IsNullOrWhiteSpace(request.GoogleMapsUrl) ? null : request.GoogleMapsUrl.Trim();
+        }
+        else if (string.IsNullOrWhiteSpace(business.GoogleMapsUrl) || (!string.IsNullOrWhiteSpace(request.Name) || !string.IsNullOrWhiteSpace(request.City)))
+        {
+            business.GoogleMapsUrl = NfcMenuSaas.Services.GoogleReviewUrlBuilder.BuildReviewUrl(business.Name, business.City, business.GooglePlaceId, business.GoogleMapsUrl);
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            success = true,
+            businessId = business.Id,
+            name = business.Name,
+            slug = business.Slug,
+            ownerName = business.OwnerName,
+            phone = business.OwnerPhone,
+            email = business.OwnerEmail,
+            ruc = business.Ruc,
+            department = business.Department,
+            province = business.Province,
+            district = business.District,
+            city = business.City,
+            address = business.Address,
+            googleMapsUrl = business.GoogleMapsUrl,
+            isActive = business.IsActive,
+            planMonths = business.PlanMonths,
+            planExpiryDate = business.PlanExpiryDate,
+            templateType = (int)business.TemplateType,
+            message = "Información del cliente actualizada exitosamente."
+        });
+    }
 }
 
 public record UpdatePasswordRequest(string Password);
@@ -432,6 +566,24 @@ public record UpdateRoutingRequest(
     string? WifiPassword = null
 );
 
+public record UpdateBusinessRequest(
+    string? Name,
+    string? OwnerName,
+    string? Phone,
+    string? Email,
+    string? Password,
+    string? Ruc,
+    string? Department,
+    string? Province,
+    string? District,
+    string? Address,
+    string? City,
+    bool? IsActive,
+    int? PlanMonths,
+    int? Services,
+    string? GoogleMapsUrl = null
+);
+
 public record RegisterBusinessRequest(
     string Name,
     string? OwnerName,
@@ -439,13 +591,18 @@ public record RegisterBusinessRequest(
     string? Phone,
     string? Password,
     string? Ruc,
+    string? Department,
+    string? Province,
+    string? District,
     string? City,
     string? Address,
-    int Services = 1
+    int Services = 1,
+    int? PlanMonths = 12
 );
 
 public record LoginApiRequest(
     string Email,
     string Password
 );
+
 

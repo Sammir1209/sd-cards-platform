@@ -18,7 +18,15 @@ import { api } from '../../services/api';
 const { width } = Dimensions.get('window');
 
 interface LoginScreenProps {
-  onLogin: (email: string, role: 'superadmin' | 'buyer', businessId?: number) => void;
+  onLogin: (
+    email: string,
+    role: 'superadmin' | 'buyer',
+    businessId?: number,
+    token?: string,
+    businessName?: string,
+    ownerName?: string,
+    slug?: string
+  ) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
@@ -47,7 +55,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       setLoading(false);
 
       if (res.success && res.data) {
-        onLogin(res.data.email || email.trim(), res.data.role, res.data.businessId);
+        onLogin(
+          res.data.email || email.trim(),
+          res.data.role,
+          res.data.businessId,
+          res.data.token,
+          res.data.businessName || res.data.name,
+          res.data.ownerName,
+          res.data.slug
+        );
       } else {
         setErrorMsg(res.error || 'Credenciales invalidas o cuenta suspendida.');
       }

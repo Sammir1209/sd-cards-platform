@@ -6,7 +6,8 @@ import {
   Text,
   TouchableOpacity,
   Platform,
-  Image
+  Image,
+  Alert
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LogOut, Sparkles, ArrowRight } from 'lucide-react-native';
@@ -18,23 +19,73 @@ import { BuyerPortalScreen } from './src/screens/buyer/BuyerPortalScreen';
 import { UpdateService, UpdateCheckResult } from './src/services/updateService';
 import { UpdateModal } from './src/components/UpdateModal';
 import { NotificationService } from './src/services/notificationService';
+import { AuthStorage, StoredSession } from './src/services/authStorage';
+import { api } from './src/services/api';
 
 export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [session, setSession] = useState<{
-    isAuthenticated: boolean;
-    email: string;
-    role: 'superadmin' | 'buyer';
-    businessId?: number;
-  }>({
+  const [session, setSession] = useState<StoredSession>({
     isAuthenticated: false,
     email: '',
     role: 'buyer'
   });
 
+  const handleLogout = async () => {
+    await AuthStorage.clearSession();
+    api.setAuthToken(null);
+    setSession({
+      isAuthenticated: false,
+      email: '',
+      role: 'buyer'
+    });
+  };
+
+  const confirmLogout = () => {
+    Alert.alert(
+      'Cerrar Sesion',
+      'Deseas cerrar tu sesion actual? Solo al presionar Cerrar Sesion se cerrara tu acceso.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar Sesion', style: 'destructive', onPress: handleLogout }
+      ]
+    );
+  };
+
+  const handleLogin = async (
+    email: string,
+    role: 'superadmin' | 'buyer',
+    businessId?: number,
+    token?: string,
+    businessName?: string,
+    ownerName?: string,
+    slug?: string
+  ) => {
+    const activeToken = token || api.getAuthToken() || `SD-AUTH-${Date.now()}`;
+    api.setAuthToken(activeToken);
+
+    const newSession: StoredSession = {
+      isAuthenticated: true,
+      email,
+      role,
+      businessId: businessId || 1,
+      token: activeToken,
+      businessName,
+      ownerName,
+      slug
+    };
+
+    setSession(newSession);
+    await AuthStorage.saveSession(newSession);
+  };
+
   useEffect(() => {
+    // Registrar callback ante respuestas 401 Unauthorized
+    api.setOnUnauthorized(() => {
+      handleLogout();
+    });
+
     // Solicitar permisos nativos de notificaciones en el arranque
     NotificationService.requestNotificationPermissions();
 
@@ -45,28 +96,35 @@ export default function App() {
       }
     });
 
-    const timer = setTimeout(() => {
-      setIsAppLoading(false);
-    }, 2000);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    // Restauración asíncrona de sesión persistente con splash interactivo
+    const bootstrapApp = async () => {
+      try {
+        const [stored] = await Promise.all([
+          AuthStorage.getSession(),
+          new Promise(resolve => setTimeout(resolve, 1200))
+        ]);
+
+        if (isMounted && stored && stored.isAuthenticated) {
+          api.setAuthToken(stored.token || null);
+          setSession(stored);
+        }
+      } catch (err) {
+        console.error('[App] Error al restaurar sesión persistente:', err);
+      } finally {
+        if (isMounted) {
+          setIsAppLoading(false);
+        }
+      }
+    };
+
+    bootstrapApp();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  const handleLogin = (email: string, role: 'superadmin' | 'buyer', businessId?: number) => {
-    setSession({
-      isAuthenticated: true,
-      email,
-      role,
-      businessId: businessId || 1
-    });
-  };
-
-  const handleLogout = () => {
-    setSession({
-      isAuthenticated: false,
-      email: '',
-      role: 'buyer'
-    });
-  };
 
   // PANTALLA DE CARGA (SPLASH) INTERACTIVA
   if (isAppLoading) {
@@ -103,8 +161,14 @@ export default function App() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-          <LogOut size={16} color={MONIQ.textSecondary} />
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={confirmLogout}
+          activeOpacity={0.7}
+          accessibilityLabel="Cerrar Sesion"
+        >
+          <LogOut size={13} color={MONIQ.negative} style={{ marginRight: 5 }} />
+          <Text style={styles.logoutBtnText}>Cerrar Sesion</Text>
         </TouchableOpacity>
       </View>
 
@@ -180,14 +244,19 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   logoutBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: MONIQ.surface,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 77, 106, 0.1)',
     borderWidth: 1,
-    borderColor: MONIQ.cardBorder
+    borderColor: 'rgba(255, 77, 106, 0.3)'
+  },
+  logoutBtnText: {
+    color: MONIQ.negative,
+    fontSize: 11,
+    fontWeight: '700'
   },
   updateNoticeBanner: {
     flexDirection: 'row',

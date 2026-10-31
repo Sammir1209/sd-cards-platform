@@ -40,7 +40,11 @@ import {
   Lock,
   Smartphone,
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  Edit3,
+  MapPin,
+  Filter,
+  Calendar
 } from 'lucide-react-native';
 import { MONIQ } from '../../theme/colors';
 import { api } from '../../services/api';
@@ -149,6 +153,28 @@ export const SuperAdminScreen: React.FC = () => {
   const [newBizAddress, setNewBizAddress] = useState('');
   const [newBizPlanMonths, setNewBizPlanMonths] = useState(12);
   const [newBizServices, setNewBizServices] = useState<number>(1);
+
+  // Filtros avanzados del directorio de clientes
+  const [deptFilter, setDeptFilter] = useState<string>('all');
+  const [serviceFilter, setServiceFilter] = useState<'all' | '1' | '2' | '3'>('all');
+
+  // Modal y formulario de Edición Integral de Clientes
+  const [showEditBizModal, setShowEditBizModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editBizId, setEditBizId] = useState<number | null>(null);
+  const [editBizName, setEditBizName] = useState('');
+  const [editBizOwner, setEditBizOwner] = useState('');
+  const [editBizPhone, setEditBizPhone] = useState('');
+  const [editBizEmail, setEditBizEmail] = useState('');
+  const [editBizPassword, setEditBizPassword] = useState('');
+  const [editBizRuc, setEditBizRuc] = useState('');
+  const [editDeptId, setEditDeptId] = useState('lima');
+  const [editProvId, setEditProvId] = useState('lima');
+  const [editDistrictName, setEditDistrictName] = useState('Miraflores');
+  const [editAddress, setEditAddress] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editPlanMonths, setEditPlanMonths] = useState(12);
+  const [editServices, setEditServices] = useState<number>(1);
 
   // Modal Asignar Tarjeta Rápida
   const [showAddCardModal, setShowAddCardModal] = useState(false);
@@ -266,6 +292,9 @@ export const SuperAdminScreen: React.FC = () => {
       password: newBizPassword.trim() || undefined,
       phone: newBizPhone.trim(),
       ruc: newBizRuc.trim() || undefined,
+      department: currentDept.name,
+      province: currentProv.name,
+      district: selectedDistrictName,
       city: locationCity,
       address: newBizAddress.trim() || selectedDistrictName,
       services: newBizServices,
@@ -283,6 +312,7 @@ export const SuperAdminScreen: React.FC = () => {
       setNewBizEmail('');
       setNewBizPassword('');
       setNewBizPhone('');
+      setNewBizRuc('');
       setNewBizAddress('');
       setShowCreateBizModal(false);
       loadData();
@@ -304,6 +334,118 @@ export const SuperAdminScreen: React.FC = () => {
         visible: true,
         title: 'No se pudo crear el cliente',
         message: res.error || 'Error al registrar el negocio en el servidor.'
+      });
+    }
+  };
+
+  // Abrir Modal de Edición Integral con datos cargados
+  const openEditBizModal = (biz: any) => {
+    setEditBizId(biz.id);
+    setEditBizName(biz.name || '');
+    setEditBizOwner(biz.ownerName || '');
+    setEditBizPhone(biz.ownerPhone || biz.phone || '');
+    setEditBizEmail(biz.ownerEmail || biz.email || '');
+    setEditBizPassword(biz.accessPassword || '');
+    setEditBizRuc(biz.ruc || '');
+    setEditAddress(biz.address || '');
+    setEditIsActive(biz.isActive && !biz.isArchived);
+    setEditPlanMonths(biz.planMonths || 12);
+    setEditServices(biz.templateType || 1);
+
+    // Emparejar departamento y provincia
+    let matchedDept = PERU_DEPARTMENTS.find(d =>
+      (biz.department && d.name.toLowerCase() === biz.department.toLowerCase()) ||
+      (biz.city && biz.city.toLowerCase().includes(d.name.toLowerCase()))
+    );
+    if (!matchedDept) matchedDept = PERU_DEPARTMENTS.find(d => d.id === 'lima') || PERU_DEPARTMENTS[0];
+    setEditDeptId(matchedDept.id);
+
+    let matchedProv = matchedDept.provinces.find(p =>
+      (biz.province && p.name.toLowerCase() === biz.province.toLowerCase()) ||
+      (biz.city && biz.city.toLowerCase().includes(p.name.toLowerCase()))
+    );
+    if (!matchedProv) matchedProv = matchedDept.provinces[0];
+    setEditProvId(matchedProv.id);
+
+    let matchedDist = matchedProv.districts.find(d =>
+      (biz.district && d.toLowerCase() === biz.district.toLowerCase()) ||
+      (biz.city && biz.city.toLowerCase().includes(d.toLowerCase()))
+    );
+    setEditDistrictName(matchedDist || matchedProv.districts[0] || 'Centro');
+
+    setShowEditBizModal(true);
+  };
+
+  // Guardar Cambios de Edición Integral
+  const handleSaveEditBusiness = async () => {
+    if (!editBizId || !editBizName.trim()) {
+      setNoticeModalData({
+        visible: true,
+        title: 'Nombre requerido',
+        message: 'El nombre comercial del cliente es obligatorio.',
+        isError: true
+      });
+      return;
+    }
+
+    const currentDept = PERU_DEPARTMENTS.find(d => d.id === editDeptId) || PERU_DEPARTMENTS[0];
+    const currentProv = currentDept.provinces.find(p => p.id === editProvId) || currentDept.provinces[0];
+    const locationCity = `${editDistrictName}, ${currentProv.name} - ${currentDept.name}`;
+
+    setEditLoading(true);
+    const res = await api.updateBusiness(editBizId, {
+      name: editBizName.trim(),
+      ownerName: editBizOwner.trim() || undefined,
+      phone: editBizPhone.trim() || undefined,
+      email: editBizEmail.trim() || undefined,
+      password: editBizPassword.trim() || undefined,
+      ruc: editBizRuc.trim() || undefined,
+      department: currentDept.name,
+      province: currentProv.name,
+      district: editDistrictName,
+      city: locationCity,
+      address: editAddress.trim() || undefined,
+      isActive: editIsActive,
+      planMonths: editPlanMonths,
+      services: editServices
+    });
+    setEditLoading(false);
+
+    if (res.success) {
+      setShowEditBizModal(false);
+      await loadData();
+      if (selectedBuyer && selectedBuyer.id === editBizId) {
+        setSelectedBuyer((prev: any) => ({
+          ...prev,
+          name: editBizName.trim(),
+          ownerName: editBizOwner.trim(),
+          ownerPhone: editBizPhone.trim(),
+          ownerEmail: editBizEmail.trim(),
+          accessPassword: editBizPassword.trim() || prev?.accessPassword,
+          ruc: editBizRuc.trim(),
+          department: currentDept.name,
+          province: currentProv.name,
+          district: editDistrictName,
+          city: locationCity,
+          address: editAddress.trim(),
+          isActive: editIsActive,
+          isArchived: !editIsActive,
+          planMonths: editPlanMonths,
+          templateType: editServices
+        }));
+      }
+
+      setNoticeModalData({
+        visible: true,
+        title: 'Cliente Actualizado',
+        message: `Los datos comerciales y técnicos de "${editBizName.trim()}" fueron guardados exitosamente.`,
+        isError: false
+      });
+    } else {
+      setErrorModalData({
+        visible: true,
+        title: 'Error al actualizar',
+        message: res.error || 'No se pudo guardar la información del cliente.'
       });
     }
   };
@@ -571,16 +713,43 @@ export const SuperAdminScreen: React.FC = () => {
     });
   };
 
-  // Filtrado de clientes
+  // Filtrado de clientes con búsqueda instantánea y filtros avanzados
   const filteredBusinesses = businesses.filter(b => {
+    const q = searchQuery.toLowerCase().trim();
     const matchSearch =
-      b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (b.slug && b.slug.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (b.city && b.city.toLowerCase().includes(searchQuery.toLowerCase()));
+      !q ||
+      (b.name && b.name.toLowerCase().includes(q)) ||
+      (b.slug && b.slug.toLowerCase().includes(q)) ||
+      (b.ruc && b.ruc.toLowerCase().includes(q)) ||
+      (b.ownerName && b.ownerName.toLowerCase().includes(q)) ||
+      (b.ownerPhone && b.ownerPhone.includes(q)) ||
+      (b.ownerEmail && b.ownerEmail.toLowerCase().includes(q)) ||
+      (b.city && b.city.toLowerCase().includes(q)) ||
+      (b.department && b.department.toLowerCase().includes(q)) ||
+      (b.province && b.province.toLowerCase().includes(q)) ||
+      (b.district && b.district.toLowerCase().includes(q)) ||
+      (b.address && b.address.toLowerCase().includes(q));
 
     if (!matchSearch) return false;
-    if (clientFilter === 'active') return b.isActive && !b.isArchived;
-    if (clientFilter === 'suspended') return !b.isActive || b.isArchived;
+
+    // Filtro de Estado
+    if (clientFilter === 'active' && (!b.isActive || b.isArchived)) return false;
+    if (clientFilter === 'suspended' && (b.isActive && !b.isArchived)) return false;
+
+    // Filtro de Departamento
+    if (deptFilter !== 'all') {
+      const targetDept = deptFilter.toLowerCase();
+      const matchDept =
+        (b.department && b.department.toLowerCase() === targetDept) ||
+        (b.city && b.city.toLowerCase().includes(targetDept));
+      if (!matchDept) return false;
+    }
+
+    // Filtro de Tipo de Servicio
+    if (serviceFilter !== 'all') {
+      if (String(b.templateType) !== serviceFilter) return false;
+    }
+
     return true;
   });
 
@@ -750,24 +919,24 @@ export const SuperAdminScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* BUSCADOR Y FILTROS */}
+            {/* BUSCADOR Y FILTROS INSTANTANEOS */}
             <View style={styles.searchBarWrap}>
-              <Search size={16} color={MONIQ.textSecondary} style={{ marginRight: 10 }} />
+              <Search size={16} color={MONIQ.cyan} style={{ marginRight: 10 }} />
               <TextInput
                 style={styles.searchInput}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Buscar por nombre o ciudad..."
+                placeholder="Buscar por nombre, RUC, titular, ciudad, telefono..."
                 placeholderTextColor={MONIQ.textMuted}
               />
               {searchQuery ? (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
                   <X size={16} color={MONIQ.textMuted} />
                 </TouchableOpacity>
               ) : null}
             </View>
 
-            {/* PILDORAS DE FILTRADO */}
+            {/* FILTROS AVANZADOS 1: ESTADO OPERATIVO */}
             <View style={styles.filterPillsRow}>
               <TouchableOpacity
                 style={[styles.filterPill, clientFilter === 'all' && styles.filterPillActive]}
@@ -797,87 +966,168 @@ export const SuperAdminScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
+            {/* FILTROS AVANZADOS 2: TIPO DE SERVICIO / MODALIDAD */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.pillsScrollRow, { marginBottom: 8 }]}>
+              {[
+                { id: 'all', label: 'Todos los Planes' },
+                { id: '1', label: 'Menu Digital' },
+                { id: '2', label: 'Resenas Google' },
+                { id: '3', label: 'Dual Hub Completo' }
+              ].map(s => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.filterPillMini, serviceFilter === s.id && styles.filterPillMiniActive]}
+                  onPress={() => setServiceFilter(s.id as any)}
+                >
+                  <Text style={[styles.filterPillMiniText, serviceFilter === s.id && styles.filterPillMiniTextActive]}>
+                    {s.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* FILTROS AVANZADOS 3: UBIGEO (DEPARTAMENTOS DEL PERU) */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.pillsScrollRow, { marginBottom: 14 }]}>
+              <TouchableOpacity
+                style={[styles.filterPillMini, deptFilter === 'all' && styles.filterPillMiniActive]}
+                onPress={() => setDeptFilter('all')}
+              >
+                <Text style={[styles.filterPillMiniText, deptFilter === 'all' && styles.filterPillMiniTextActive]}>
+                  Todas las Regiones
+                </Text>
+              </TouchableOpacity>
+              {PERU_DEPARTMENTS.map(dept => (
+                <TouchableOpacity
+                  key={dept.id}
+                  style={[styles.filterPillMini, deptFilter === dept.name && styles.filterPillMiniActive]}
+                  onPress={() => setDeptFilter(deptFilter === dept.name ? 'all' : dept.name)}
+                >
+                  <Text style={[styles.filterPillMiniText, deptFilter === dept.name && styles.filterPillMiniTextActive]}>
+                    {dept.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             {/* LISTA DE CLIENTES */}
-            {filteredBusinesses.map((biz) => {
-              const isSelected = selectedBuyer?.id === biz.id;
-              const isActive = biz.isActive && !biz.isArchived;
+            {filteredBusinesses.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>No se encontraron clientes con los filtros aplicados.</Text>
+              </View>
+            ) : (
+              filteredBusinesses.map((biz) => {
+                const isSelected = selectedBuyer?.id === biz.id;
+                const isActive = biz.isActive && !biz.isArchived;
 
-              return (
-                <View key={biz.id} style={styles.clientCard}>
-                  {/* CABECERA DEL CLIENTE */}
-                  <View style={styles.clientCardHeader}>
-                    <View style={styles.clientAvatar}>
-                      <Text style={styles.clientAvatarText}>
-                        {biz.name.substring(0, 2).toUpperCase()}
+                return (
+                  <View key={biz.id} style={styles.clientCard}>
+                    {/* CABECERA DEL CLIENTE */}
+                    <View style={styles.clientCardHeader}>
+                      <View style={styles.clientAvatar}>
+                        <Text style={styles.clientAvatarText}>
+                          {biz.name ? biz.name.substring(0, 2).toUpperCase() : 'SD'}
+                        </Text>
+                      </View>
+
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Text style={styles.clientName}>{biz.name}</Text>
+                          {biz.ruc ? (
+                            <View style={styles.rucBadge}>
+                              <Text style={styles.rucBadgeText}>RUC {biz.ruc}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.clientDetail}>
+                          {biz.ownerName || 'Titular'} • {biz.ownerPhone || biz.phone || 'Sin telefono'}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.statusBadgeSmall, isActive ? styles.badgeActive : styles.badgeInactive]}>
+                        <Text style={[styles.statusBadgeTextSmall, isActive ? styles.badgeTextActive : styles.badgeTextInactive]}>
+                          {isActive ? 'ACTIVO' : 'PAUSADO'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* UBICACION GEOGRAFICA (UBIGEO) */}
+                    <View style={styles.clientLocRow}>
+                      <MapPin size={12} color={MONIQ.cyan} style={{ marginRight: 5 }} />
+                      <Text style={styles.clientLocText} numberOfLines={1}>
+                        {biz.district ? `${biz.district}, ` : ''}
+                        {biz.province ? `${biz.province} - ` : ''}
+                        {biz.department || biz.city || 'Lima'}
+                        {biz.address ? ` (${biz.address})` : ''}
                       </Text>
                     </View>
 
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.clientName}>{biz.name}</Text>
-                      <Text style={styles.clientDetail}>
-                        {biz.ownerEmail || 'Sin correo'} • {biz.phone || 'Sin tel'}
-                      </Text>
+                    {/* DATOS DE OPERACION RAPIDA */}
+                    <View style={styles.clientStatsRow}>
+                      <View style={styles.clientMiniStat}>
+                        <CreditCard size={13} color={MONIQ.cyan} style={{ marginRight: 5 }} />
+                        <Text style={styles.clientMiniStatText}>{biz.cardsCount || 0} tarjetas</Text>
+                      </View>
+
+                      <View style={styles.clientMiniStat}>
+                        <Zap size={13} color={MONIQ.positive} style={{ marginRight: 5 }} />
+                        <Text style={styles.clientMiniStatText}>{biz.totalTaps || 0} lecturas</Text>
+                      </View>
+
+                      <View style={styles.clientMiniStat}>
+                        <Calendar size={13} color={MONIQ.gold} style={{ marginRight: 5 }} />
+                        <Text style={styles.clientMiniStatText}>Plan {biz.planMonths || 12}m</Text>
+                      </View>
+
+                      <View style={styles.clientMiniStat}>
+                        <Text style={[styles.clientMiniStatText, { color: MONIQ.cyan }]}>
+                          {biz.templateType === 1 ? 'Menu Digital' : biz.templateType === 2 ? 'Resenas' : 'Dual Hub'}
+                        </Text>
+                      </View>
                     </View>
 
-                    <View style={[styles.statusBadgeSmall, isActive ? styles.badgeActive : styles.badgeInactive]}>
-                      <Text style={[styles.statusBadgeTextSmall, isActive ? styles.badgeTextActive : styles.badgeTextInactive]}>
-                        {isActive ? 'ACTIVO' : 'PAUSADO'}
-                      </Text>
+                    {/* BOTONES DE GESTION DIRECTA */}
+                    <View style={styles.clientActionButtons}>
+                      <TouchableOpacity
+                        style={[styles.clientToolBtn, { backgroundColor: 'rgba(0, 229, 255, 0.08)', borderColor: 'rgba(0, 229, 255, 0.25)' }]}
+                        onPress={() => openEditBizModal(biz)}
+                      >
+                        <Edit3 size={13} color={MONIQ.cyan} style={{ marginRight: 5 }} />
+                        <Text style={[styles.clientToolBtnText, { color: MONIQ.cyan }]}>Editar</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.clientToolBtn}
+                        onPress={() => openWhatsApp(biz.ownerPhone || biz.phone, 'credentials', biz)}
+                      >
+                        <MessageSquare size={13} color={MONIQ.textSecondary} style={{ marginRight: 5 }} />
+                        <Text style={styles.clientToolBtnText}>WhatsApp</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.clientToolBtn}
+                        onPress={() => handleToggleBusinessStatus(biz)}
+                      >
+                        <Text style={[styles.clientToolBtnText, { color: isActive ? MONIQ.negative : MONIQ.positive }]}>
+                          {isActive ? 'Pausar' : 'Activar'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.clientToolBtn, isSelected && styles.clientToolBtnSelected]}
+                        onPress={() => {
+                          if (isSelected) {
+                            setSelectedBuyer(null);
+                          } else {
+                            setSelectedBuyer(biz);
+                            loadBuyerCards(biz.id);
+                          }
+                        }}
+                      >
+                        <Text style={[styles.clientToolBtnText, isSelected && { color: MONIQ.cyan }]}>
+                          {isSelected ? 'Ocultar' : `Tarjetas (${biz.cardsCount || 0})`}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  </View>
-
-                  {/* DATOS DE OPERACION RAPIDA */}
-                  <View style={styles.clientStatsRow}>
-                    <View style={styles.clientMiniStat}>
-                      <CreditCard size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
-                      <Text style={styles.clientMiniStatText}>{biz.cardsCount || 0} tarjetas</Text>
-                    </View>
-
-                    <View style={styles.clientMiniStat}>
-                      <Zap size={14} color={MONIQ.positive} style={{ marginRight: 6 }} />
-                      <Text style={styles.clientMiniStatText}>{biz.totalTaps || 0} lecturas</Text>
-                    </View>
-
-                    <View style={styles.clientMiniStat}>
-                      <Text style={styles.clientMiniStatText}>Plan {biz.planMonths || 12}m</Text>
-                    </View>
-                  </View>
-
-                  {/* BOTONES DE GESTION DIRECTA */}
-                  <View style={styles.clientActionButtons}>
-                    <TouchableOpacity
-                      style={styles.clientToolBtn}
-                      onPress={() => openWhatsApp(biz.phone, 'credentials', biz)}
-                    >
-                      <MessageSquare size={13} color={MONIQ.cyan} style={{ marginRight: 6 }} />
-                      <Text style={styles.clientToolBtnText}>Credenciales</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.clientToolBtn}
-                      onPress={() => handleToggleBusinessStatus(biz)}
-                    >
-                      <Text style={[styles.clientToolBtnText, { color: isActive ? MONIQ.negative : MONIQ.positive }]}>
-                        {isActive ? 'Pausar' : 'Activar'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.clientToolBtn, isSelected && styles.clientToolBtnSelected]}
-                      onPress={() => {
-                        if (isSelected) {
-                          setSelectedBuyer(null);
-                        } else {
-                          setSelectedBuyer(biz);
-                          loadBuyerCards(biz.id);
-                        }
-                      }}
-                    >
-                      <Text style={[styles.clientToolBtnText, isSelected && { color: MONIQ.cyan }]}>
-                        {isSelected ? 'Ocultar Tarjetas' : 'Ver Tarjetas'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
 
                   {/* SECCION EXPANDIDA DE TARJETAS DEL CLIENTE */}
                   {isSelected && (
@@ -943,7 +1193,7 @@ export const SuperAdminScreen: React.FC = () => {
                   )}
                 </View>
               );
-            })}
+            }))}
           </View>
         )}
 
@@ -1018,7 +1268,7 @@ export const SuperAdminScreen: React.FC = () => {
                   onPress={() => setAddCardDestination(1)}
                 >
                   <Text style={[styles.destToggleText, addCardDestination === 1 && styles.destToggleTextActive]}>
-                    Reseñas Google (5★)
+                    Reseñas Google (5 Estrellas)
                   </Text>
                 </TouchableOpacity>
 
@@ -1520,6 +1770,271 @@ export const SuperAdminScreen: React.FC = () => {
       </Modal>
 
       {/* ==================================================================== */}
+      {/* MODAL: EDICIÓN INTEGRAL DE CLIENTES (UBIGEO, PLAN, ACCESOS)          */}
+      {/* ==================================================================== */}
+      <Modal visible={showEditBizModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.formModalCard, { maxHeight: '90%' }]}>
+            <View style={styles.modalFormHeader}>
+              <View>
+                <Text style={styles.modalFormTitle}>Editar Cliente</Text>
+                <Text style={styles.modalFormSubtitle}>Actualiza datos comerciales, ubicación y contrato</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowEditBizModal(false)} style={styles.closeBtnSmall}>
+                <X size={20} color={MONIQ.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 480 }} showsVerticalScrollIndicator={false}>
+              {/* BLOQUE 1: IDENTIFICACIÓN COMERCIAL */}
+              <View style={styles.formSectionHeader}>
+                <Building size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={styles.formSectionTitle}>1. IDENTIFICACIÓN COMERCIAL</Text>
+              </View>
+
+              <Text style={styles.formLabel}>NOMBRE COMERCIAL DEL NEGOCIO *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editBizName}
+                onChangeText={setEditBizName}
+                placeholder="Nombre comercial"
+                placeholderTextColor={MONIQ.textMuted}
+              />
+
+              <View style={styles.formRowTwoCols}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={[styles.formLabel, { marginTop: 10 }]}>TITULAR / ENCARGADO</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={editBizOwner}
+                    onChangeText={setEditBizOwner}
+                    placeholder="Nombre completo"
+                    placeholderTextColor={MONIQ.textMuted}
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { marginTop: 10 }]}>RUC / DNI</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={editBizRuc}
+                    onChangeText={setEditBizRuc}
+                    placeholder="11 dígitos"
+                    placeholderTextColor={MONIQ.textMuted}
+                    keyboardType="numeric"
+                    maxLength={11}
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>TELÉFONO WHATSAPP (+51)</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editBizPhone}
+                onChangeText={setEditBizPhone}
+                placeholder="Ej. 987654321"
+                placeholderTextColor={MONIQ.textMuted}
+                keyboardType="phone-pad"
+              />
+
+              {/* BLOQUE 2: UBICACIÓN GEOGRÁFICA (PERÚ) */}
+              <View style={[styles.formSectionHeader, { marginTop: 16 }]}>
+                <MapPin size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={styles.formSectionTitle}>2. UBICACIÓN GEOGRÁFICA (PERÚ)</Text>
+              </View>
+
+              {/* SELECTOR DE DEPARTAMENTO */}
+              <Text style={styles.formLabel}>DEPARTAMENTO *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+                {PERU_DEPARTMENTS.map((dept) => (
+                  <TouchableOpacity
+                    key={dept.id}
+                    style={[styles.geoPill, editDeptId === dept.id && styles.geoPillActive]}
+                    onPress={() => {
+                      setEditDeptId(dept.id);
+                      const firstProv = dept.provinces[0];
+                      if (firstProv) {
+                        setEditProvId(firstProv.id);
+                        setEditDistrictName(firstProv.districts[0] || 'Centro');
+                      }
+                    }}
+                  >
+                    <Text style={[styles.geoPillText, editDeptId === dept.id && styles.geoPillTextActive]}>
+                      {dept.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* SELECTOR DE PROVINCIA */}
+              {(() => {
+                const dept = PERU_DEPARTMENTS.find(d => d.id === editDeptId) || PERU_DEPARTMENTS[0];
+                return (
+                  <>
+                    <Text style={[styles.formLabel, { marginTop: 10 }]}>PROVINCIA *</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+                      {dept.provinces.map((prov) => (
+                        <TouchableOpacity
+                          key={prov.id}
+                          style={[styles.geoPill, editProvId === prov.id && styles.geoPillActive]}
+                          onPress={() => {
+                            setEditProvId(prov.id);
+                            setEditDistrictName(prov.districts[0] || 'Centro');
+                          }}
+                        >
+                          <Text style={[styles.geoPillText, editProvId === prov.id && styles.geoPillTextActive]}>
+                            {prov.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                );
+              })()}
+
+              {/* SELECTOR DE DISTRITO */}
+              {(() => {
+                const dept = PERU_DEPARTMENTS.find(d => d.id === editDeptId) || PERU_DEPARTMENTS[0];
+                const prov = dept.provinces.find(p => p.id === editProvId) || dept.provinces[0];
+                const districts = prov?.districts || [];
+                return (
+                  <>
+                    <Text style={[styles.formLabel, { marginTop: 10 }]}>DISTRITO *</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+                      {districts.map((dist) => (
+                        <TouchableOpacity
+                          key={dist}
+                          style={[styles.geoPill, editDistrictName === dist && styles.geoPillActive]}
+                          onPress={() => setEditDistrictName(dist)}
+                        >
+                          <Text style={[styles.geoPillText, editDistrictName === dist && styles.geoPillTextActive]}>
+                            {dist}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                );
+              })()}
+
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>DIRECCIÓN ESPECÍFICA / LOCAL</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editAddress}
+                onChangeText={setEditAddress}
+                placeholder="Av. Principal 123, Piso 1"
+                placeholderTextColor={MONIQ.textMuted}
+              />
+
+              {/* BLOQUE 3: CONTRATO, ESTADO Y SERVICIOS */}
+              <View style={[styles.formSectionHeader, { marginTop: 16 }]}>
+                <Sliders size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={styles.formSectionTitle}>3. ESTADO COMERCIAL & MODALIDAD</Text>
+              </View>
+
+              <Text style={styles.formLabel}>ESTADO OPERATIVO</Text>
+              <View style={styles.durationPillsRow}>
+                <TouchableOpacity
+                  style={[styles.durationPill, editIsActive && { backgroundColor: 'rgba(16, 185, 129, 0.2)', borderColor: MONIQ.positive }]}
+                  onPress={() => setEditIsActive(true)}
+                >
+                  <Text style={[styles.durationPillText, editIsActive && { color: MONIQ.positive, fontWeight: '800' }]}>
+                    Activo (Operativo)
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.durationPill, !editIsActive && { backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: MONIQ.negative }]}
+                  onPress={() => setEditIsActive(false)}
+                >
+                  <Text style={[styles.durationPillText, !editIsActive && { color: MONIQ.negative, fontWeight: '800' }]}>
+                    Pausado (Suspendido)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.formLabel, { marginTop: 12 }]}>MODALIDAD / SERVICIO CONTRATADO</Text>
+              <View style={styles.durationPillsRow}>
+                {[
+                  { id: 1, label: 'Menu Digital' },
+                  { id: 2, label: 'Resenas Google' },
+                  { id: 3, label: 'Dual Hub' }
+                ].map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.durationPill, editServices === s.id && styles.durationPillActive]}
+                    onPress={() => setEditServices(s.id)}
+                  >
+                    <Text style={[styles.durationPillText, editServices === s.id && styles.durationPillTextActive]}>
+                      {s.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.formLabel, { marginTop: 12 }]}>VIGENCIA DEL PLAN</Text>
+              <View style={styles.durationPillsRow}>
+                {[
+                  { m: 3, label: '3 Meses' },
+                  { m: 6, label: '6 Meses' },
+                  { m: 12, label: '1 Ano' },
+                  { m: 24, label: '2 Anos' }
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.m}
+                    style={[styles.durationPill, editPlanMonths === item.m && styles.durationPillActive]}
+                    onPress={() => setEditPlanMonths(item.m)}
+                  >
+                    <Text style={[styles.durationPillText, editPlanMonths === item.m && styles.durationPillTextActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* BLOQUE 4: ACCESO AL PORTAL */}
+              <View style={[styles.formSectionHeader, { marginTop: 16 }]}>
+                <Lock size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={styles.formSectionTitle}>4. CREDENCIALES DE ACCESO</Text>
+              </View>
+
+              <Text style={styles.formLabel}>CORREO ELECTRÓNICO (USUARIO)</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editBizEmail}
+                onChangeText={setEditBizEmail}
+                placeholder="usuario@negocio.com"
+                placeholderTextColor={MONIQ.textMuted}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>CLAVE DE ACCESO</Text>
+              <TextInput
+                style={styles.formInput}
+                value={editBizPassword}
+                onChangeText={setEditBizPassword}
+                placeholder="Nueva clave o conservar actual"
+                placeholderTextColor={MONIQ.textMuted}
+              />
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.submitFormBtn}
+              onPress={handleSaveEditBusiness}
+              disabled={editLoading}
+            >
+              {editLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitFormBtnText}>Guardar Cambios del Cliente</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
       {/* MODAL: AGREGAR TARJETA A LOCAL (REPARADO Y OPERATIVO)                 */}
       {/* ==================================================================== */}
       <Modal visible={showAddCardModal} transparent animationType="fade">
@@ -1583,7 +2098,7 @@ export const SuperAdminScreen: React.FC = () => {
                 onPress={() => setAddCardDestination(1)}
               >
                 <Text style={[styles.destToggleText, addCardDestination === 1 && styles.destToggleTextActive]}>
-                  Reseñas Google (5★)
+                  Reseñas Google (5 Estrellas)
                 </Text>
               </TouchableOpacity>
 
@@ -2701,5 +3216,55 @@ const styles = StyleSheet.create({
   durationPillTextActive: {
     color: MONIQ.accent,
     fontWeight: '800'
+  },
+  filterPillMini: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: MONIQ.surface,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder,
+    marginRight: 6
+  },
+  filterPillMiniActive: {
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    borderColor: MONIQ.cyan
+  },
+  filterPillMiniText: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  filterPillMiniTextActive: {
+    color: MONIQ.cyan,
+    fontWeight: '800'
+  },
+  rucBadge: {
+    backgroundColor: 'rgba(0, 229, 255, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.3)'
+  },
+  rucBadgeText: {
+    color: MONIQ.cyan,
+    fontSize: 10,
+    fontWeight: '800'
+  },
+  clientLocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)'
+  },
+  clientLocText: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1
   }
 });

@@ -1,15 +1,70 @@
 import { LogManager } from './logManager';
 import { API_BASE_URL } from '../config/env';
 
+let currentAuthToken: string | null = null;
+let onUnauthorizedCallback: (() => void) | null = null;
+
+export function setAuthToken(token: string | null): void {
+  currentAuthToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return currentAuthToken;
+}
+
+export function setOnUnauthorized(callback: () => void): void {
+  onUnauthorizedCallback = callback;
+}
+
 /**
  * Función robusta safeFetch:
  * Previene el error fatal "JSON Parse error: Unexpected character: <"
  * verificando si la respuesta HTTP es realmente JSON antes de parsearla.
+ * Inyecta token Bearer si existe y maneja respuestas 401 desautorizadas.
  */
 async function safeFetch<T = any>(endpoint: string, options?: RequestInit): Promise<{ success: boolean; data?: T; error?: string }> {
   const url = `${API_BASE_URL}${endpoint}`;
   try {
-    const res = await fetch(url, options);
+    const requestHeaders: Record<string, string> = {};
+    if (options?.headers) {
+      if (typeof (options.headers as any).forEach === 'function') {
+        (options.headers as any).forEach((value: string, key: string) => {
+          requestHeaders[key] = value;
+        });
+      } else if (Array.isArray(options.headers)) {
+        for (const [key, value] of options.headers) {
+          requestHeaders[key] = value;
+        }
+      } else {
+        Object.assign(requestHeaders, options.headers);
+      }
+    }
+
+    const hasAuth = Object.keys(requestHeaders).some(
+      key => key.toLowerCase() === 'authorization'
+    );
+    if (currentAuthToken && !hasAuth) {
+      requestHeaders['Authorization'] = `Bearer ${currentAuthToken}`;
+    }
+
+    const mergedOptions: RequestInit = {
+      ...options,
+      headers: requestHeaders
+    };
+
+    const res = await fetch(url, mergedOptions);
+
+    if (res.status === 401 && !endpoint.includes('/login')) {
+      LogManager.addLog(`[AUTH 401] ${endpoint} -> No autorizado (expirado o inválido)`);
+      if (onUnauthorizedCallback) {
+        try {
+          onUnauthorizedCallback();
+        } catch (cbErr) {
+          console.error('[safeFetch] Error en callback onUnauthorized:', cbErr);
+        }
+      }
+    }
+
     const contentType = res.headers.get('content-type') || '';
 
     if (!contentType.includes('application/json')) {
@@ -37,23 +92,36 @@ async function safeFetch<T = any>(endpoint: string, options?: RequestInit): Prom
 }
 
 export const api = {
+  // Configuración de Sesión y Token
+  setAuthToken,
+  getAuthToken,
+  setOnUnauthorized,
+
   // Autenticación de Usuarios / Portal Clientes
   login: async (credentials: { email: string; password: string }) => {
-    return safeFetch<{
+    const res = await safeFetch<{
       success: boolean;
       role: 'superadmin' | 'buyer';
       businessId?: number;
       businessName?: string;
       ownerName?: string;
+      name?: string;
       email?: string;
       slug?: string;
       templateType?: number;
+      token?: string;
       error?: string;
     }>('/businessapi/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials)
     });
+
+    if (res.success && res.data?.token) {
+      setAuthToken(res.data.token);
+    }
+
+    return res;
   },
 
   // Negocios / Compradores
@@ -74,6 +142,9 @@ export const api = {
     password?: string;
     phone: string;
     ruc?: string;
+    department?: string;
+    province?: string;
+    district?: string;
     city?: string;
     address?: string;
     services: number;
@@ -81,6 +152,32 @@ export const api = {
   }) => {
     return safeFetch<any>('/businessapi/register', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  },
+
+  updateBusiness: async (
+    id: number,
+    data: {
+      name?: string;
+      ownerName?: string;
+      phone?: string;
+      email?: string;
+      password?: string;
+      ruc?: string;
+      department?: string;
+      province?: string;
+      district?: string;
+      address?: string;
+      city?: string;
+      isActive?: boolean;
+      planMonths?: number;
+      services?: number;
+    }
+  ) => {
+    return safeFetch<any>(`/businessapi/${id}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });

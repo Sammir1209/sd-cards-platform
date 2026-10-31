@@ -39,14 +39,14 @@
     @if (TempData["Success"] != null)
     {
         <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold">
-            ✓ @TempData["Success"]
+            @TempData["Success"]
         </div>
     }
 
     @if (TempData["Error"] != null)
     {
         <div class="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold">
-            ⚠️ @TempData["Error"]
+            @TempData["Error"]
         </div>
     }
 

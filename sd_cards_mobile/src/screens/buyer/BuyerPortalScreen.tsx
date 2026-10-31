@@ -520,7 +520,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
                 <View style={styles.destinationDirectRow}>
                   <Text style={styles.destLabelMicro}>DESTINO DIRECTO:</Text>
                   <Text style={styles.destValHighlight}>
-                    {activeRoutingMode === 1 ? 'Reseñas Google (5★ Directo)' : 'Carta Digital (Directo)'}
+                    {activeRoutingMode === 1 ? 'Reseñas Google (5 Estrellas Directo)' : 'Carta Digital (Directo)'}
                   </Text>
                 </View>
 
@@ -571,7 +571,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
                 <View style={[styles.modeRadioCircle, activeRoutingMode === 1 && styles.modeRadioCircleActive]}>
                   {activeRoutingMode === 1 && <View style={styles.modeRadioDot} />}
                 </View>
-                <Text style={styles.modeSelectTitle}>Reseñas Google Maps (5★)</Text>
+                <Text style={styles.modeSelectTitle}>Reseñas Google Maps (5 Estrellas)</Text>
               </View>
               <Text style={styles.modeSelectDesc}>
                 Al tocar la tarjeta o escanear el QR, el cliente va directamente a la ventana de calificación de 5 estrellas en Google Maps.

@@ -28,6 +28,30 @@ public class Business
     public BusinessSector Sector { get; set; } = BusinessSector.General;
 
     /// <summary>
+    /// RUC o DNI tributario/identificatorio del cliente
+    /// </summary>
+    [MaxLength(20)]
+    public string? Ruc { get; set; }
+
+    /// <summary>
+    /// Departamento (Ubigeo Perú)
+    /// </summary>
+    [MaxLength(100)]
+    public string? Department { get; set; }
+
+    /// <summary>
+    /// Provincia (Ubigeo Perú)
+    /// </summary>
+    [MaxLength(100)]
+    public string? Province { get; set; }
+
+    /// <summary>
+    /// Distrito (Ubigeo Perú)
+    /// </summary>
+    [MaxLength(100)]
+    public string? District { get; set; }
+
+    /// <summary>
     /// Ciudad o distrito para geolocalizar y generar el link exacto de Google Maps
     /// </summary>
     [MaxLength(100)]
@@ -56,6 +80,16 @@ public class Business
 
     [MaxLength(100)]
     public string? AccessPassword { get; set; }
+
+    /// <summary>
+    /// Duración contratada del plan en meses (ej: 3, 6, 12, 24)
+    /// </summary>
+    public int PlanMonths { get; set; } = 12;
+
+    /// <summary>
+    /// Fecha calculada o fijada de vencimiento del plan
+    /// </summary>
+    public DateTime? PlanExpiryDate { get; set; }
 
     /// <summary>
     /// URL directa generada para reseñas de Google Maps
