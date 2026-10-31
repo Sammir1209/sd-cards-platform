@@ -12,7 +12,8 @@ import {
   Share,
   Modal,
   Platform,
-  Image
+  Image,
+  Dimensions
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
@@ -24,26 +25,28 @@ import {
   Utensils,
   Star,
   Zap,
-  CheckCircle2,
-  ExternalLink,
   Globe,
-  Save,
-  Check,
-  AlertCircle,
-  QrCode,
-  Layers,
   Copy,
-  Wifi,
-  Share2,
+  ExternalLink,
   Printer,
-  Lock,
-  X,
-  FileText,
-  ShieldCheck
+  Share2,
+  Check,
+  CheckCircle2,
+  AlertCircle,
+  Sliders,
+  ChevronRight,
+  Wifi,
+  Sparkles,
+  RefreshCw,
+  QrCode,
+  ShieldCheck,
+  X
 } from 'lucide-react-native';
 import { MONIQ } from '../../theme/colors';
 import { api } from '../../services/api';
 import { ENV } from '../../config/env';
+
+const { width } = Dimensions.get('window');
 
 interface BuyerPortalScreenProps {
   businessId: number;
@@ -53,49 +56,55 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
   const [business, setBusiness] = useState<any>(null);
   const [cards, setCards] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'cards' | 'qr' | 'routing' | 'menu'>('cards');
+  const [activeTab, setActiveTab] = useState<'cards' | 'routing' | 'qr' | 'menu'>('cards');
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
 
-  // Configuración de Enrutamiento y QR Dinámico
+  // Estados del enrutamiento directo (0ms)
   const [googleMapsUrl, setGoogleMapsUrl] = useState('');
-  const [autoRedirectReviews, setAutoRedirectReviews] = useState(true);
   const [customDomain, setCustomDomain] = useState('');
-  const [activeRoutingMode, setActiveRoutingMode] = useState<number>(1);
+  const [activeRoutingMode, setActiveRoutingMode] = useState<number>(1); // 1: Reseñas, 2: Carta
   const [wifiPassword, setWifiPassword] = useState('');
   const [savingRouting, setSavingRouting] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [routingNotice, setRoutingNotice] = useState<{ message: string; isError: boolean } | null>(null);
 
-  // Impresión Inalámbrica Wi-Fi
+  // Modal de Impresión
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printFormat, setPrintFormat] = useState<'stand' | 'sticker' | 'thermal'>('stand');
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Compartir Imagen QR (PNG)
+  // Modal QR de Tarjeta Individual
+  const [selectedCardForQr, setSelectedCardForQr] = useState<any>(null);
+
+  // Referencias para QR e imágenes
   const qrSvgRef = useRef<any>(null);
   const [isSharingQr, setIsSharingQr] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadPortalData();
   }, [businessId]);
 
-  const loadData = async () => {
+  const loadPortalData = async () => {
     try {
-      const bData = await api.getBusinessById(businessId);
-      if (bData) {
-        setBusiness(bData);
-        setGoogleMapsUrl(bData.googleMapsUrl || '');
-        setAutoRedirectReviews(bData.autoRedirectReviews !== false);
-        setCustomDomain(bData.customDomain || '');
-        setActiveRoutingMode(bData.activeRoutingMode || 1);
-        setWifiPassword(bData.wifiPassword || '');
+      setIsLoadingInitial(true);
+      const [bizData, cardsData, menuData] = await Promise.all([
+        api.getBusinessById(businessId),
+        api.getCardsByBusiness(businessId),
+        api.getMenuByBusiness(businessId)
+      ]);
+
+      if (bizData) {
+        setBusiness(bizData);
+        setGoogleMapsUrl(bizData.googleMapsUrl || '');
+        setCustomDomain(bizData.customDomain || '');
+        // El modo activo es estrictamente directo: 1 (Reseñas) o 2 (Carta)
+        setActiveRoutingMode(bizData.activeRoutingMode === 2 ? 2 : 1);
+        setWifiPassword(bizData.wifiPassword || '');
       }
-      const cData = await api.getCardsByBusiness(businessId);
-      setCards(cData);
-      const mData = await api.getMenuByBusiness(businessId);
-      setCategories(mData?.categories || []);
-    } catch (e) {
-      console.log('Error cargando portal comprador:', e);
+      if (cardsData) setCards(cardsData);
+      if (menuData && menuData.categories) setCategories(menuData.categories);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'No se pudieron sincronizar los datos del local.');
     } finally {
       setIsLoadingInitial(false);
     }
@@ -103,98 +112,98 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
 
   const handleToggleDish = async (dishId: number) => {
     try {
+      setCategories(prev =>
+        prev.map(cat => ({
+          ...cat,
+          dishes: cat.dishes.map((d: any) =>
+            d.id === dishId ? { ...d, isAvailable: !d.isAvailable } : d
+          )
+        }))
+      );
       await api.toggleDish(dishId);
-      loadData();
-    } catch (e) {
-      Alert.alert('Error', 'No se pudo actualizar el plato.');
+    } catch (e: any) {
+      Alert.alert('Error', 'No se pudo actualizar el estado del platillo.');
+      loadPortalData();
     }
   };
 
-  const isMenuService = business?.templateType === 1 || business?.templateType === 3;
-  const isReviewsService = business?.templateType === 2 || business?.templateType === 3;
-  const isHubService = business?.templateType === 3;
-
   const handleSaveRouting = async (overrideMode?: number) => {
-    setSavingRouting(true);
-    setRoutingNotice(null);
-    const targetMode = overrideMode !== undefined ? overrideMode : activeRoutingMode;
+    try {
+      setSavingRouting(true);
+      setRoutingNotice(null);
+      const modeToSave = overrideMode !== undefined ? overrideMode : activeRoutingMode;
 
-    const res = await api.updateBusinessRouting(businessId, {
-      googleMapsUrl: isReviewsService ? googleMapsUrl.trim() : undefined,
-      autoRedirectReviews: isReviewsService ? autoRedirectReviews : undefined,
-      customDomain: isMenuService ? customDomain.trim() : undefined,
-      activeRoutingMode: targetMode,
-      wifiPassword: isHubService ? wifiPassword.trim() : undefined
-    });
-    setSavingRouting(false);
-
-    if (res.success) {
-      setRoutingNotice({
-        message: 'Configuración guardada exitosamente. Todos los QRs y tarjetas responderán con este modo.',
-        isError: false
+      const res = await api.updateBusinessRouting(businessId, {
+        googleMapsUrl: googleMapsUrl.trim(),
+        autoRedirectReviews: true,
+        customDomain: customDomain.trim(),
+        activeRoutingMode: modeToSave,
+        wifiPassword: wifiPassword.trim()
       });
-      loadData();
-    } else {
+
+      if (res.success) {
+        setActiveRoutingMode(modeToSave);
+        setRoutingNotice({
+          message: 'Destino directo guardado. Todos los taps redirigirán instantáneamente.',
+          isError: false
+        });
+        if (business) {
+          setBusiness({
+            ...business,
+            googleMapsUrl: googleMapsUrl.trim(),
+            customDomain: customDomain.trim(),
+            activeRoutingMode: modeToSave,
+            wifiPassword: wifiPassword.trim()
+          });
+        }
+      } else {
+        setRoutingNotice({
+          message: res.error || 'No se pudo guardar la configuración.',
+          isError: true
+        });
+      }
+    } catch (err: any) {
       setRoutingNotice({
-        message: res.error || 'No se pudieron guardar los cambios de ruta.',
+        message: err?.message || 'Error de conexión con el servidor.',
         isError: true
       });
+    } finally {
+      setSavingRouting(false);
     }
   };
 
   const handleTestUrl = (url: string) => {
-    if (!url || !url.trim()) {
-      Alert.alert('URL requerida', 'Ingresa una URL válida antes de realizar la prueba.');
-      return;
-    }
-    let target = url.trim();
-    if (!target.startsWith('http://') && !target.startsWith('https://')) {
-      target = 'https://' + target;
-    }
-    Linking.openURL(target).catch(() => {
-      Alert.alert('Error', 'No se pudo abrir la URL en el navegador de este dispositivo.');
+    if (!url) return;
+    const finalUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+    Linking.openURL(finalUrl).catch(() => {
+      Alert.alert('Error al abrir enlace', 'Comprueba que la URL ingresada sea válida.');
     });
   };
 
-  const qrCanonicalUrl = business?.slug
-    ? ENV.getQrUrl(business.slug)
-    : ENV.BACKEND_URL;
-
   const handleCopyQrLink = async () => {
-    await Clipboard.setStringAsync(qrCanonicalUrl);
+    const qrUrl = ENV.getQrUrl(business?.slug || 'qr');
+    await Clipboard.setStringAsync(qrUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleShareQrImage = async () => {
-    if (isSharingQr) return;
-    setIsSharingQr(true);
+    if (!qrSvgRef.current) return;
     try {
-      if (!qrSvgRef.current) {
-        Alert.alert('Error', 'El código QR aún no está listo para exportarse.');
-        setIsSharingQr(false);
-        return;
-      }
-
-      qrSvgRef.current.toDataURL(async (base64Data: string) => {
+      setIsSharingQr(true);
+      qrSvgRef.current.toDataURL(async (data: string) => {
         try {
-          const cleanSlug = business?.slug ? business.slug.replace(/[^a-zA-Z0-9_-]/g, '') : 'sd_qr';
-          const filename = `QR_${cleanSlug}.png`;
-          const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-
-          await FileSystem.writeAsStringAsync(fileUri, base64Data, {
+          const filePath = `${FileSystem.cacheDirectory}qr_${business?.slug || 'codigo'}.png`;
+          await FileSystem.writeAsStringAsync(filePath, data, {
             encoding: FileSystem.EncodingType.Base64
           });
-
-          const canShare = await Sharing.isAvailableAsync();
-          if (canShare) {
-            await Sharing.shareAsync(fileUri, {
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(filePath, {
               mimeType: 'image/png',
-              dialogTitle: `Compartir Código QR - ${business?.name || 'Local'}`,
-              UTI: 'public.png'
+              dialogTitle: `Código QR - ${business?.name || 'Local'}`
             });
           } else {
-            Alert.alert('No compatible', 'El servicio para compartir imágenes no está disponible en este dispositivo.');
+            Alert.alert('Compartir no disponible', 'La función de compartir no está activa en este teléfono.');
           }
         } catch (err: any) {
           Alert.alert('Error al exportar imagen', err?.message || 'No se pudo generar la imagen del código QR.');
@@ -204,7 +213,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
       });
     } catch (e: any) {
       setIsSharingQr(false);
-      Alert.alert('Error', e?.message || 'Ocurrió un error al preparar la imagen QR.');
+      Alert.alert('Error', e?.message || 'Error al preparar la imagen QR.');
     }
   };
 
@@ -242,23 +251,19 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </head>
         <body>
           <div>
-            <div class="tag">Smart Stand NFC & QR</div>
+            <div class="tag">Atencion Inmediata</div>
             <h1 class="title">${businessName}</h1>
-            <div class="subtitle">Atención Inteligente Inmediata</div>
+            <div class="subtitle">Apunta tu camara o acerca tu telefono</div>
           </div>
-
           <div>
             <div class="qr-box">
               <img src="${qrImg}" alt="QR" />
             </div>
-            <div class="cta">Apunta tu cámara o acerca tu teléfono</div>
-            <div class="instructions">Escanea este código para calificar nuestro servicio con 5 estrellas o consultar nuestro menú digital.</div>
-            ${wifiPass ? `<div class="wifi-card">Red Wi-Fi Clientes • Clave: ${wifiPass}</div>` : ''}
+            <div class="cta">Califica tu Experiencia o Consulta Carta</div>
+            <div class="instructions">Acceso instantaneo de alta velocidad</div>
+            ${wifiPass ? `<div class="wifi-card">Red Wi-Fi Clientes: ${wifiPass}</div>` : ''}
           </div>
-
-          <div class="footer">
-            Sam Services Ecosystem
-          </div>
+          <div class="footer">Soporte Inteligente en Sala</div>
         </body>
         </html>
       `;
@@ -285,9 +290,9 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </head>
         <body>
           <div class="title">${businessName}</div>
-          <div class="sub">Escanea para Calificar</div>
+          <div class="sub">Acerca tu Telefono o Escanea</div>
           <img class="qr-img" src="${qrImg}" alt="QR" />
-          <div class="footer">SAM SERVICES SMART QR</div>
+          <div class="footer">Tarjetas NFC & QR Inteligente</div>
         </body>
         </html>
       `;
@@ -317,12 +322,12 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
           <div class="header">${businessName}</div>
           <div class="sep"></div>
           <div class="msg">CALIFICA TU EXPERIENCIA</div>
-          <div style="font-size: 10px;">Apunta con la cámara de tu celular</div>
+          <div style="font-size: 10px;">Apunta con la camara de tu celular</div>
           <img class="qr" src="${qrImg}" alt="QR" />
           <div class="url">${qrUrl}</div>
           ${wifiPass ? `<div class="msg">Clave Wi-Fi: ${wifiPass}</div>` : ''}
           <div class="sep"></div>
-          <div class="foot">POTENCIADO POR SAM SERVICES</div>
+          <div class="foot">Acceso Directo Inteligente</div>
         </body>
         </html>
       `;
@@ -332,31 +337,18 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
   const handleExecutePrint = async () => {
     try {
       setIsPrinting(true);
-      const html = generatePrintHtml(printFormat, business?.name || 'Local', qrCanonicalUrl, wifiPassword);
+      const qrUrl = ENV.getQrUrl(business?.slug || 'qr');
+      const html = generatePrintHtml(printFormat, business?.name || 'Local', qrUrl, wifiPassword);
       await Print.printAsync({ html });
       setShowPrintModal(false);
     } catch (e: any) {
-      Alert.alert('Error de impresión', e?.message || 'No se pudo conectar con la impresora Wi-Fi.');
+      Alert.alert('Error de impresión', e?.message || 'No se pudo conectar con la impresora.');
     } finally {
       setIsPrinting(false);
     }
   };
 
-  const handleSelectMode = (mode: number) => {
-    if (mode === 1 && !isReviewsService) {
-      Alert.alert('Módulo No Contratado', 'Tu plan contratado actual es Solo Menú. No incluye Google Reviews 5 Estrellas.');
-      return;
-    }
-    if (mode === 2 && !isMenuService) {
-      Alert.alert('Módulo No Contratado', 'Tu plan contratado actual es Solo Reseñas. No incluye Menú Digital.');
-      return;
-    }
-    if (mode === 3 && !isHubService) {
-      Alert.alert('Módulo No Contratado', 'El Smart Hub Multifuncional es una característica exclusiva del Pack Dual Pro.');
-      return;
-    }
-    setActiveRoutingMode(mode);
-  };
+  const qrCanonicalUrl = ENV.getQrUrl(business?.slug || 'qr');
 
   if (isLoadingInitial && !business) {
     return (
@@ -370,87 +362,97 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       
-      {/* HEADER DE BIENVENIDA DEL COMPRADOR */}
+      {/* CABECERA ERGONÓMICA DEL CLIENTE */}
       <View style={styles.buyerHeader}>
         <View style={styles.buyerHeaderTop}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image
-              source={require('../../../assets/logo.png')}
-              style={styles.buyerHeaderLogo}
-              resizeMode="contain"
-            />
-            <Text style={styles.buyerPreTitle}>PORTAL CLIENTE SAM SERVICES</Text>
+          <View style={styles.buyerHeaderLeft}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>
+                {(business?.name || 'Local').substring(0, 2).toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ marginLeft: 10 }}>
+              <Text style={styles.buyerTitle}>{business?.name || 'Mi Establecimiento'}</Text>
+              <Text style={styles.buyerMeta}>{business?.city || 'Lima'} • Servicio Activo</Text>
+            </View>
           </View>
-          <View style={[styles.planBadge, isHubService ? styles.planBadgeDual : isReviewsService ? styles.planBadgeReviews : styles.planBadgeMenu]}>
-            <ShieldCheck size={11} color={isHubService ? MONIQ.positive : isReviewsService ? MONIQ.gold : MONIQ.cyan} />
-            <Text style={[styles.planBadgeText, { color: isHubService ? MONIQ.positive : isReviewsService ? MONIQ.gold : MONIQ.cyan }]}>
-              {isHubService ? 'PACK DUAL' : isReviewsService ? 'SOLO RESEÑAS' : 'SOLO MENÚ'}
+
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.livePillText}>Activo</Text>
+          </View>
+        </View>
+
+        {/* METRICAS PRINCIPALES */}
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCard}>
+            <CreditCard size={18} color={MONIQ.cyan} />
+            <Text style={styles.metricVal}>{cards.length}</Text>
+            <Text style={styles.metricSub}>Tarjetas en sala</Text>
+          </View>
+
+          <View style={styles.metricCard}>
+            <Zap size={18} color={MONIQ.positive} />
+            <Text style={styles.metricVal}>
+              {cards.reduce((acc, curr) => acc + (curr.tapCount || 0), 0)}
             </Text>
+            <Text style={styles.metricSub}>Lecturas totales</Text>
+          </View>
+
+          <View style={styles.metricCard}>
+            <Star size={18} color={MONIQ.gold} />
+            <Text style={[styles.metricVal, { color: MONIQ.gold }]}>
+              {activeRoutingMode === 1 ? 'Reseñas' : 'Menú'}
+            </Text>
+            <Text style={styles.metricSub}>Destino activo</Text>
           </View>
         </View>
-        <Text style={styles.buyerTitle}>{business?.name || 'Cargando local...'}</Text>
-        <Text style={styles.buyerMeta}>{business?.city || 'Lima'} • {business?.address || 'Servicio Activo'}</Text>
       </View>
 
-      {/* MÉTRICAS DE OPERACIÓN REAL */}
-      <View style={styles.metricsRow}>
-        <View style={[styles.metricCard, { marginRight: 8 }]}>
-          <CreditCard size={18} color={MONIQ.cyan} />
-          <Text style={styles.metricVal}>{cards.length}</Text>
-          <Text style={styles.metricSub}>Tarjetas en salón</Text>
-        </View>
-
-        <View style={[styles.metricCard, { marginLeft: 8 }]}>
-          <Zap size={18} color={MONIQ.positive} />
-          <Text style={styles.metricVal}>
-            {cards.reduce((acc, curr) => acc + (curr.tapCount || 0), 0)}
-          </Text>
-          <Text style={styles.metricSub}>Taps registrados</Text>
-        </View>
-      </View>
-
-      {/* SELECTOR DE MÓDULOS DE TRABAJO (CON CONTROL SEGÚN PLAN) */}
+      {/* SELECTOR SEGMENTADO ESTILO FLUTTER */}
       <View style={styles.tabRow}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'cards' && styles.tabBtnActive]}
           onPress={() => setActiveTab('cards')}
         >
+          <CreditCard size={14} color={activeTab === 'cards' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
           <Text style={[styles.tabText, activeTab === 'cards' && styles.tabTextActive]}>
-            Tarjetas
+            Tarjetas ({cards.length})
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.tabBtn, activeTab === 'qr' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('qr')}
-        >
-          <Text style={[styles.tabText, activeTab === 'qr' && styles.tabTextActive]}>
-            QR Inteligente
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabBtn, activeTab === 'routing' && styles.tabBtnActive]}
           onPress={() => setActiveTab('routing')}
         >
+          <Sliders size={14} color={activeTab === 'routing' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
           <Text style={[styles.tabText, activeTab === 'routing' && styles.tabTextActive]}>
-            Rutas
+            Enlaces Directos
           </Text>
         </TouchableOpacity>
 
-        {isMenuService && (
-          <TouchableOpacity 
-            style={[styles.tabBtn, activeTab === 'menu' && styles.tabBtnActive]}
-            onPress={() => setActiveTab('menu')}
-          >
-            <Text style={[styles.tabText, activeTab === 'menu' && styles.tabTextActive]}>
-              Carta
-            </Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'qr' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('qr')}
+        >
+          <QrCode size={14} color={activeTab === 'qr' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
+          <Text style={[styles.tabText, activeTab === 'qr' && styles.tabTextActive]}>
+            Imprimir QR
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'menu' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('menu')}
+        >
+          <Utensils size={14} color={activeTab === 'menu' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
+          <Text style={[styles.tabText, activeTab === 'menu' && styles.tabTextActive]}>
+            Carta
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* AVISO DE ACCIONES GUARDADAS */}
+      {/* NOTIFICACION DE ACCION */}
       {routingNotice && (
         <View style={[styles.noticeCard, routingNotice.isError ? styles.noticeError : styles.noticeSuccess]}>
           {routingNotice.isError ? (
@@ -464,42 +466,70 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </View>
       )}
 
-      {/* ========================================================================= */}
-      {/* VISTA 1: LISTA LIMPIA DE TARJETAS DEL COMPRADOR                           */}
-      {/* ========================================================================= */}
+      {/* ===================================================================== */}
+      {/* PESTAÑA 1: TARJETAS EN SALÓN CON CONTROL DIRECTO                     */}
+      {/* ===================================================================== */}
       {activeTab === 'cards' && (
         <View>
-          <Text style={styles.sectionTitle}>Hardware Vinculado a tu Local</Text>
-          <Text style={styles.sectionSubtitle}>
-            Ubicación y estado de cada tarjeta física en salón
-          </Text>
+          <View style={styles.sectionHeaderWrap}>
+            <Text style={styles.sectionTitle}>Tarjetas Físicas en Salón</Text>
+            <Text style={styles.sectionSubtitle}>
+              Cada tarjeta redirige directamente al destino configurado sin pantallas intermedias.
+            </Text>
+          </View>
 
           {cards.length === 0 ? (
-            <View style={styles.emptyStateBox}>
+            <View style={styles.emptyCardBox}>
               <CreditCard size={32} color={MONIQ.textMuted} style={{ marginBottom: 8 }} />
-              <Text style={styles.emptyStateTitle}>Sin Tarjetas Asignadas</Text>
-              <Text style={styles.emptyStateSub}>
-                El administrador aún no ha vinculado tarjetas físicas a tu negocio.
+              <Text style={styles.emptyCardTitle}>Sin Tarjetas Vinculadas</Text>
+              <Text style={styles.emptyCardSub}>
+                El administrador creará las tarjetas de tu local desde el taller de hardware.
               </Text>
             </View>
           ) : (
             cards.map((c) => (
-              <View key={c.id} style={styles.cardItem}>
-                <View style={styles.cardIconBox}>
-                  <CreditCard size={18} color={MONIQ.cyan} />
-                </View>
-
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.cardLabelText}>{c.label}</Text>
-                  <Text style={styles.cardCodeText}>{c.cardCode} • {c.cardType}</Text>
-                </View>
-
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.tapBadge}>{c.tapCount || 0} taps</Text>
-                  <View style={styles.liveIndicator}>
-                    <View style={styles.liveDot} />
-                    <Text style={styles.liveText}>Activa</Text>
+              <View key={c.id} style={styles.tableCardItem}>
+                <View style={styles.tableCardTop}>
+                  <View style={styles.tableIconWrap}>
+                    <CreditCard size={18} color={MONIQ.cyan} />
                   </View>
+
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.tableCardLabel}>{c.label || 'Mesa'}</Text>
+                    <Text style={styles.tableCardCode}>#{c.cardCode}</Text>
+                  </View>
+
+                  <View style={styles.tapCounterBadge}>
+                    <Zap size={12} color={MONIQ.positive} style={{ marginRight: 4 }} />
+                    <Text style={styles.tapCounterText}>{c.tapCount || 0} taps</Text>
+                  </View>
+                </View>
+
+                {/* DESTINO DIRECTO DE LA TARJETA */}
+                <View style={styles.destinationDirectRow}>
+                  <Text style={styles.destLabelMicro}>DESTINO DIRECTO:</Text>
+                  <Text style={styles.destValHighlight}>
+                    {activeRoutingMode === 1 ? 'Reseñas Google (5★ Directo)' : 'Carta Digital (Directo)'}
+                  </Text>
+                </View>
+
+                {/* ACCIONES RAPIDAS */}
+                <View style={styles.cardActionsRow}>
+                  <TouchableOpacity
+                    style={styles.cardActionBtn}
+                    onPress={() => handleTestUrl(ENV.getCardUrl(c.cardCode))}
+                  >
+                    <ExternalLink size={13} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                    <Text style={styles.cardActionBtnText}>Probar Salto Directo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.cardActionBtn, { backgroundColor: MONIQ.surfaceElevated }]}
+                    onPress={() => setSelectedCardForQr(c)}
+                  >
+                    <QrCode size={13} color={MONIQ.textPrimary} style={{ marginRight: 6 }} />
+                    <Text style={[styles.cardActionBtnText, { color: MONIQ.textPrimary }]}>Ver QR</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))
@@ -507,19 +537,135 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </View>
       )}
 
-      {/* ========================================================================= */}
-      {/* VISTA 2: QR MULTIFUNCIONAL CON COMPARTIR E IMPRESIÓN WI-FI                */}
-      {/* ========================================================================= */}
+      {/* ===================================================================== */}
+      {/* PESTAÑA 2: ENLACES DIRECTOS (RESEÑAS / CARTA / DOMINIO)              */}
+      {/* ===================================================================== */}
+      {activeTab === 'routing' && (
+        <View>
+          <View style={styles.sectionHeaderWrap}>
+            <Text style={styles.sectionTitle}>Configuración de Destino Directo</Text>
+            <Text style={styles.sectionSubtitle}>
+              Tus tarjetas y QRs saltan directamente aquí. Sin pantallas intermedias.
+            </Text>
+          </View>
+
+          {/* SELECTOR DE DESTINO GLOBAL DIRECTO */}
+          <View style={styles.modeCardsContainer}>
+            <TouchableOpacity
+              style={[styles.modeSelectCard, activeRoutingMode === 1 && styles.modeSelectCardActive]}
+              onPress={() => setActiveRoutingMode(1)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.modeSelectTop}>
+                <View style={[styles.modeRadioCircle, activeRoutingMode === 1 && styles.modeRadioCircleActive]}>
+                  {activeRoutingMode === 1 && <View style={styles.modeRadioDot} />}
+                </View>
+                <Text style={styles.modeSelectTitle}>Reseñas Google Maps (5★)</Text>
+              </View>
+              <Text style={styles.modeSelectDesc}>
+                Al tocar la tarjeta o escanear el QR, el cliente va directamente a la ventana de calificación de 5 estrellas en Google Maps.
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modeSelectCard, activeRoutingMode === 2 && styles.modeSelectCardActive]}
+              onPress={() => setActiveRoutingMode(2)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.modeSelectTop}>
+                <View style={[styles.modeRadioCircle, activeRoutingMode === 2 && styles.modeRadioCircleActive]}>
+                  {activeRoutingMode === 2 && <View style={styles.modeRadioDot} />}
+                </View>
+                <Text style={styles.modeSelectTitle}>Carta / Menú Digital</Text>
+              </View>
+              <Text style={styles.modeSelectDesc}>
+                Al tocar la tarjeta, el cliente abre de inmediato la carta interactiva con fotos, precios y platillos disponibles.
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* FORMULARIO DE ENLACES */}
+          <View style={styles.routingFormCard}>
+            <Text style={styles.inputHeading}>ENLACE DE RESEÑAS GOOGLE MAPS</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.formInputText}
+                value={googleMapsUrl}
+                onChangeText={setGoogleMapsUrl}
+                placeholder="https://g.page/r/... o enlace corto de Google Maps"
+                placeholderTextColor={MONIQ.textMuted}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.testLinkBtn}
+                onPress={() => handleTestUrl(googleMapsUrl)}
+              >
+                <ExternalLink size={14} color={MONIQ.cyan} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputHeading, { marginTop: 16 }]}>DOMINIO O SITIO WEB PROPIO (OPCIONAL)</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.formInputText}
+                value={customDomain}
+                onChangeText={setCustomDomain}
+                placeholder="Ej. https://mirestaurante.pe/carta"
+                placeholderTextColor={MONIQ.textMuted}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.testLinkBtn}
+                onPress={() => handleTestUrl(customDomain)}
+              >
+                <ExternalLink size={14} color={MONIQ.cyan} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputHeading, { marginTop: 16 }]}>CONTRASEÑA WI-FI PARA CLIENTES (OPCIONAL)</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.formInputText}
+                value={wifiPassword}
+                onChangeText={setWifiPassword}
+                placeholder="Clave de red para imprimir en stickers"
+                placeholderTextColor={MONIQ.textMuted}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.saveRoutingBtn}
+              onPress={() => handleSaveRouting()}
+              disabled={savingRouting}
+              activeOpacity={0.85}
+            >
+              {savingRouting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.saveRoutingBtnText}>Guardar Destino Directo</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ===================================================================== */}
+      {/* PESTAÑA 3: IMPRESIÓN Y EXPORTACIÓN DE CÓDIGOS QR                     */}
+      {/* ===================================================================== */}
       {activeTab === 'qr' && (
         <View>
-          <Text style={styles.sectionTitle}>QR Multifuncional Permanente</Text>
-          <Text style={styles.sectionSubtitle}>
-            Imprime este QR una sola vez. Cambia su destino en vivo cuando quieras.
-          </Text>
+          <View style={styles.sectionHeaderWrap}>
+            <Text style={styles.sectionTitle}>Centro de Impresión y QR</Text>
+            <Text style={styles.sectionSubtitle}>
+              Exporta en alta resolución para colocar en stickers de mesa o parantes.
+            </Text>
+          </View>
 
-          {/* CONTENEDOR DEL CÓDIGO QR */}
           <View style={styles.qrDisplayCard}>
-            <View style={styles.qrWrapper}>
+            <View style={styles.qrFrame}>
               <QRCode
                 value={qrCanonicalUrl}
                 size={180}
@@ -529,440 +675,80 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
               />
             </View>
 
-            <View style={styles.canonicalBox}>
-              <Text style={styles.canonicalLabel}>URL CANÓNICA PERMANENTE DEL QR:</Text>
-              <Text style={styles.canonicalUrl} numberOfLines={1}>{qrCanonicalUrl}</Text>
-            </View>
+            <Text style={styles.qrNoticeText}>
+              Este código QR físico permanece idéntico en tus mesas. Su destino cambia en vivo desde la pestaña Enlaces Directos.
+            </Text>
 
-            <View style={styles.qrBadgeNotice}>
-              <Text style={styles.qrBadgeNoticeText}>
-                Este código QR impreso en tus mesas nunca cambiará. Solo debes elegir abajo qué acción realizará al escanearse.
-              </Text>
-            </View>
-
-            {/* ACCIONES DEL QR: COPIAR Y PROBAR */}
-            <View style={styles.qrActionBtnsRow}>
-              <TouchableOpacity style={styles.copyQrBtn} onPress={handleCopyQrLink}>
-                {copiedLink ? (
-                  <>
-                    <Check size={14} color={MONIQ.positive} style={{ marginRight: 4 }} />
-                    <Text style={[styles.copyQrBtnText, { color: MONIQ.positive }]}>Enlace Copiado</Text>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.copyQrBtnText}>Copiar Enlace</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.testQrBtn} onPress={() => handleTestUrl(qrCanonicalUrl)}>
-                <ExternalLink size={14} color="#0B0B0E" style={{ marginRight: 4 }} />
-                <Text style={styles.testQrBtnText}>Probar Escaneo</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ACCIONES AVANZADAS: COMPARTIR E IMPRIMIR WI-FI */}
-            <View style={[styles.qrActionBtnsRow, { marginTop: 8 }]}>
+            <View style={styles.qrButtonGrid}>
               <TouchableOpacity
-                style={styles.shareQrBtn}
+                style={styles.qrPillActionBtn}
                 onPress={handleShareQrImage}
                 disabled={isSharingQr}
               >
-                {isSharingQr ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Share2 size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-                    <Text style={styles.shareQrBtnText}>Compartir Imagen QR</Text>
-                  </>
-                )}
+                <Share2 size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.qrPillActionText}>Compartir QR</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.printQrBtn} onPress={() => setShowPrintModal(true)}>
-                <Printer size={14} color="#0B0B0E" style={{ marginRight: 6 }} />
-                <Text style={styles.printQrBtnText}>Imprimir por Wi-Fi</Text>
+              <TouchableOpacity
+                style={[styles.qrPillActionBtn, { backgroundColor: MONIQ.surfaceElevated, borderColor: MONIQ.cardBorder }]}
+                onPress={() => setShowPrintModal(true)}
+              >
+                <Printer size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={[styles.qrPillActionText, { color: MONIQ.textPrimary }]}>Imprimir</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.qrPillActionBtn, { backgroundColor: MONIQ.bg, borderColor: MONIQ.cardBorder }]}
+                onPress={handleCopyQrLink}
+              >
+                <Copy size={14} color={MONIQ.textSecondary} style={{ marginRight: 6 }} />
+                <Text style={[styles.qrPillActionText, { color: MONIQ.textSecondary }]}>
+                  {copiedLink ? 'Copiado' : 'Copiar URL'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* SELECTOR DE MODO ACTIVO EN VIVO SEGÚN PLAN */}
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Selecciona el Modo Activo del QR</Text>
-          <Text style={styles.sectionSubtitle}>
-            Opciones habilitadas según el paquete contratado por tu empresa
-          </Text>
-
-          {/* MODO 1: RESEÑAS DIRECTAS */}
-          <TouchableOpacity
-            style={[
-              styles.modeCard,
-              activeRoutingMode === 1 && styles.modeCardActiveReviews,
-              !isReviewsService && styles.modeCardLocked
-            ]}
-            onPress={() => handleSelectMode(1)}
-          >
-            <View style={[styles.modeIconBox, { backgroundColor: isReviewsService ? 'rgba(255, 179, 64, 0.15)' : 'rgba(255, 255, 255, 0.05)' }]}>
-              {isReviewsService ? <Star size={20} color={MONIQ.gold} /> : <Lock size={18} color={MONIQ.textMuted} />}
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.modeCardTitle, !isReviewsService && styles.textLocked]}>
-                  1. Reseñas 5 Estrellas Directas
-                </Text>
-                {activeRoutingMode === 1 && isReviewsService ? (
-                  <View style={[styles.activePill, { borderColor: MONIQ.gold }]}>
-                    <Text style={[styles.activePillText, { color: MONIQ.gold }]}>ACTIVO</Text>
-                  </View>
-                ) : !isReviewsService ? (
-                  <View style={styles.lockedPill}>
-                    <Text style={styles.lockedPillText}>NO CONTRATADO</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.modeCardDesc}>
-                {isReviewsService
-                  ? 'Abre inmediatamente Google Maps para calificar con 5 estrellas en 1 toque.'
-                  : 'Este modo no está incluido en tu plan actual (Solo Menú).'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* MODO 2: MENÚ DIGITAL DIRECTO */}
-          <TouchableOpacity
-            style={[
-              styles.modeCard,
-              activeRoutingMode === 2 && styles.modeCardActiveMenu,
-              !isMenuService && styles.modeCardLocked,
-              { marginTop: 10 }
-            ]}
-            onPress={() => handleSelectMode(2)}
-          >
-            <View style={[styles.modeIconBox, { backgroundColor: isMenuService ? 'rgba(0, 229, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)' }]}>
-              {isMenuService ? <Utensils size={20} color={MONIQ.cyan} /> : <Lock size={18} color={MONIQ.textMuted} />}
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.modeCardTitle, !isMenuService && styles.textLocked]}>
-                  2. Menú Digital & Carta
-                </Text>
-                {activeRoutingMode === 2 && isMenuService ? (
-                  <View style={[styles.activePill, { borderColor: MONIQ.cyan }]}>
-                    <Text style={[styles.activePillText, { color: MONIQ.cyan }]}>ACTIVO</Text>
-                  </View>
-                ) : !isMenuService ? (
-                  <View style={styles.lockedPill}>
-                    <Text style={styles.lockedPillText}>PLAN SOLO RESEÑAS</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.modeCardDesc}>
-                {isMenuService
-                  ? 'Abre directamente tu carta digital con platos y precios, o tu página web externa.'
-                  : 'Este modo no está incluido en tu plan actual (Solo Reseñas).'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* MODO 3: SMART HUB MULTIFUNCIONAL */}
-          <TouchableOpacity
-            style={[
-              styles.modeCard,
-              activeRoutingMode === 3 && styles.modeCardActiveHub,
-              !isHubService && styles.modeCardLocked,
-              { marginTop: 10 }
-            ]}
-            onPress={() => handleSelectMode(3)}
-          >
-            <View style={[styles.modeIconBox, { backgroundColor: isHubService ? 'rgba(53, 201, 154, 0.15)' : 'rgba(255, 255, 255, 0.05)' }]}>
-              {isHubService ? <Layers size={20} color={MONIQ.positive} /> : <Lock size={18} color={MONIQ.textMuted} />}
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={[styles.modeCardTitle, !isHubService && styles.textLocked]}>
-                  3. Smart Hub Multifuncional
-                </Text>
-                {activeRoutingMode === 3 && isHubService ? (
-                  <View style={[styles.activePill, { borderColor: MONIQ.positive }]}>
-                    <Text style={[styles.activePillText, { color: MONIQ.positive }]}>ACTIVO</Text>
-                  </View>
-                ) : !isHubService ? (
-                  <View style={styles.lockedPill}>
-                    <Text style={styles.lockedPillText}>PACK DUAL REQUERIDO</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.modeCardDesc}>
-                {isHubService
-                  ? 'Abre un portal rápido con botones para Reseñas Google + Menú Digital + WhatsApp + Clave Wi-Fi.'
-                  : 'Disponible exclusivamente para planes con Pack Dual (Menú + Reviews).'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* BOTÓN PARA APLICAR CAMBIOS */}
-          <TouchableOpacity
-            style={[styles.saveRoutingBtn, { marginTop: 18 }]}
-            onPress={() => handleSaveRouting()}
-            disabled={savingRouting}
-          >
-            {savingRouting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Save size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.saveRoutingBtnText}>Aplicar Modo al QR y Tarjetas</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
       )}
 
-      {/* ========================================================================= */}
-      {/* VISTA 3: CONFIGURACIÓN DETALLADA DE ENLACES CON FEATURE GATING             */}
-      {/* ========================================================================= */}
-      {activeTab === 'routing' && (
+      {/* ===================================================================== */}
+      {/* PESTAÑA 4: CARTA Y MENÚ DIGITAL                                      */}
+      {/* ===================================================================== */}
+      {activeTab === 'menu' && (
         <View>
-          <Text style={styles.sectionTitle}>Configuración de Destinos</Text>
-          <Text style={styles.sectionSubtitle}>
-            Modifica las rutas autorizadas según tu paquete contratado
-          </Text>
-
-          {/* BLOQUE GOOGLE REVIEWS */}
-          <View style={[styles.routingCard, !isReviewsService && styles.routingCardLocked]}>
-            <View style={styles.routingCardHeader}>
-              <View style={[styles.routingIconBox, { backgroundColor: isReviewsService ? 'rgba(255, 179, 64, 0.12)' : 'rgba(255, 255, 255, 0.05)' }]}>
-                {isReviewsService ? <Star size={18} color={MONIQ.gold} /> : <Lock size={18} color={MONIQ.textMuted} />}
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={styles.routingCardTitle}>DESTINO GOOGLE REVIEWS</Text>
-                  <View style={[styles.planStatusPill, isReviewsService ? styles.planStatusActiveReviews : styles.planStatusLocked]}>
-                    <Text style={[styles.planStatusText, { color: isReviewsService ? MONIQ.gold : MONIQ.textMuted }]}>
-                      {isReviewsService ? 'ACTIVO EN TU PLAN' : 'BLOQUEADO: SOLO MENÚ'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.routingCardSub}>Ruta directa a Google Maps para 5 estrellas</Text>
-              </View>
-            </View>
-
-            {isReviewsService ? (
-              <>
-                <Text style={styles.routingInputLabel}>URL DIRECTA DE RESEÑA (GOOGLE MAPS)</Text>
-                <TextInput
-                  style={styles.routingTextInput}
-                  value={googleMapsUrl}
-                  onChangeText={setGoogleMapsUrl}
-                  placeholder="https://g.page/r/.../review o link de Google Maps"
-                  placeholderTextColor={MONIQ.textMuted}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-                <Text style={styles.routingHelpText}>
-                  Enlace que abre la ventana de 5 estrellas en el celular del cliente.
-                </Text>
-
-                <Text style={[styles.routingInputLabel, { marginTop: 14 }]}>MODO DE REDIRECCIÓN DE RESEÑAS</Text>
-                <View style={styles.redirectOptionRow}>
-                  <TouchableOpacity
-                    style={[styles.redirectOption, autoRedirectReviews && styles.redirectOptionActive]}
-                    onPress={() => setAutoRedirectReviews(true)}
-                  >
-                    <Text style={[styles.redirectOptionText, autoRedirectReviews && styles.redirectOptionTextActive]}>
-                      Instantánea (0ms) a 5 Estrellas
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.redirectOption, !autoRedirectReviews && styles.redirectOptionActive]}
-                    onPress={() => setAutoRedirectReviews(false)}
-                  >
-                    <Text style={[styles.redirectOptionText, !autoRedirectReviews && styles.redirectOptionTextActive]}>
-                      Pantalla Intermedia con Logo
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.testLinkBtn}
-                  onPress={() => handleTestUrl(googleMapsUrl)}
-                >
-                  <ExternalLink size={14} color={MONIQ.gold} style={{ marginRight: 6 }} />
-                  <Text style={styles.testLinkBtnText}>Probar Enlace de Reseñas en Navegador</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <View style={styles.lockedBlockMessage}>
-                <Lock size={16} color={MONIQ.textMuted} style={{ marginRight: 8 }} />
-                <Text style={styles.lockedBlockText}>
-                  Tu plan contratado actual es Solo Menú Digital. La configuración de reseñas de Google está restringida.
-                </Text>
-              </View>
-            )}
+          <View style={styles.sectionHeaderWrap}>
+            <Text style={styles.sectionTitle}>Carta Digital en Tiempo Real</Text>
+            <Text style={styles.sectionSubtitle}>
+              Activa o agota platillos instantáneamente para la vista de tus clientes.
+            </Text>
           </View>
-
-          {/* BLOQUE MENÚ DIGITAL */}
-          <View style={[styles.routingCard, !isMenuService && styles.routingCardLocked, { marginTop: 16 }]}>
-            <View style={styles.routingCardHeader}>
-              <View style={[styles.routingIconBox, { backgroundColor: isMenuService ? 'rgba(0, 229, 255, 0.12)' : 'rgba(255, 255, 255, 0.05)' }]}>
-                {isMenuService ? <Globe size={18} color={MONIQ.cyan} /> : <Lock size={18} color={MONIQ.textMuted} />}
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={styles.routingCardTitle}>DESTINO MENÚ DIGITAL</Text>
-                  <View style={[styles.planStatusPill, isMenuService ? styles.planStatusActiveMenu : styles.planStatusLocked]}>
-                    <Text style={[styles.planStatusText, { color: isMenuService ? MONIQ.cyan : MONIQ.textMuted }]}>
-                      {isMenuService ? 'ACTIVO EN TU PLAN' : 'BLOQUEADO: SOLO RESEÑAS'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.routingCardSub}>Ruta de la carta interactiva y pedidos</Text>
-              </View>
-            </View>
-
-            {isMenuService ? (
-              <>
-                <View style={styles.canonicalBox}>
-                  <Text style={styles.canonicalLabel}>Ruta Nativa en Plataforma Sam Services:</Text>
-                  <Text style={styles.canonicalUrl}>
-                    {ENV.getMenuUrl(business?.slug || 'menu')}
-                  </Text>
-                </View>
-
-                <Text style={[styles.routingInputLabel, { marginTop: 14 }]}>
-                  DOMINIO O ENLACE WEB PROPIO (OPCIONAL)
-                </Text>
-                <TextInput
-                  style={styles.routingTextInput}
-                  value={customDomain}
-                  onChangeText={setCustomDomain}
-                  placeholder="Ej. https://facisac.pe/carta (dejar vacío para usar ruta nativa)"
-                  placeholderTextColor={MONIQ.textMuted}
-                  autoCapitalize="none"
-                  keyboardType="url"
-                />
-                <Text style={styles.routingHelpText}>
-                  Si dejas este campo vacío, la tarjeta abrirá tu menú en Sam Services. Si colocas un enlace, se redirigirá a tu sitio web.
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.testLinkBtn}
-                  onPress={() => handleTestUrl(customDomain || ENV.getMenuUrl(business?.slug || 'menu'))}
-                >
-                  <ExternalLink size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
-                  <Text style={[styles.testLinkBtnText, { color: MONIQ.cyan }]}>
-                    Probar Menú Digital en Navegador
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <View style={styles.lockedBlockMessage}>
-                <Lock size={16} color={MONIQ.textMuted} style={{ marginRight: 8 }} />
-                <Text style={styles.lockedBlockText}>
-                  Tu plan contratado actual es Solo Reseñas 5 Estrellas. El módulo de Menú Digital está restringido.
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* BLOQUE WI-FI DEL ESTABLECIMIENTO */}
-          <View style={[styles.routingCard, !isHubService && styles.routingCardLocked, { marginTop: 16 }]}>
-            <View style={styles.routingCardHeader}>
-              <View style={[styles.routingIconBox, { backgroundColor: isHubService ? 'rgba(53, 201, 154, 0.12)' : 'rgba(255, 255, 255, 0.05)' }]}>
-                {isHubService ? <Wifi size={18} color={MONIQ.positive} /> : <Lock size={18} color={MONIQ.textMuted} />}
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={styles.routingCardTitle}>WI-FI PARA CLIENTES</Text>
-                  <View style={[styles.planStatusPill, isHubService ? styles.planStatusActiveHub : styles.planStatusLocked]}>
-                    <Text style={[styles.planStatusText, { color: isHubService ? MONIQ.positive : MONIQ.textMuted }]}>
-                      {isHubService ? 'ACTIVO EN SMART HUB' : 'EXCLUSIVO PACK DUAL'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.routingCardSub}>Visible en el Smart Hub con botón de copia rápida</Text>
-              </View>
-            </View>
-
-            {isHubService ? (
-              <>
-                <Text style={styles.routingInputLabel}>CLAVE WI-FI DEL ESTABLECIMIENTO</Text>
-                <TextInput
-                  style={styles.routingTextInput}
-                  value={wifiPassword}
-                  onChangeText={setWifiPassword}
-                  placeholder="Ej. ClaveLocal2026! (o dejar vacío)"
-                  placeholderTextColor={MONIQ.textMuted}
-                  autoCapitalize="none"
-                />
-              </>
-            ) : (
-              <View style={styles.lockedBlockMessage}>
-                <Lock size={16} color={MONIQ.textMuted} style={{ marginRight: 8 }} />
-                <Text style={styles.lockedBlockText}>
-                  La sincronización de clave Wi-Fi está habilitada únicamente para clientes con Smart Hub (Pack Dual).
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* BOTÓN PRINCIPAL DE GUARDAR */}
-          <TouchableOpacity
-            style={styles.saveRoutingBtn}
-            onPress={() => handleSaveRouting()}
-            disabled={savingRouting}
-          >
-            {savingRouting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <>
-                <Save size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.saveRoutingBtnText}>Guardar Rutas Autorizadas</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 4: GESTIÓN DE CARTA (SOLO SI CONTRATÓ MENÚ)                         */}
-      {/* ========================================================================= */}
-      {activeTab === 'menu' && isMenuService && (
-        <View>
-          <Text style={styles.sectionTitle}>Control de Precios & Carta</Text>
-          <Text style={styles.sectionSubtitle}>
-            Toca sobre un plato para marcarlo como agotado o disponible
-          </Text>
 
           {categories.length === 0 ? (
-            <View style={styles.emptyStateBox}>
+            <View style={styles.emptyCardBox}>
               <Utensils size={32} color={MONIQ.textMuted} style={{ marginBottom: 8 }} />
-              <Text style={styles.emptyStateTitle}>Sin Categorías ni Platos</Text>
-              <Text style={styles.emptyStateSub}>
-                Tu menú aún no tiene productos registrados en la carta.
+              <Text style={styles.emptyCardTitle}>Sin Categorías de Menú</Text>
+              <Text style={styles.emptyCardSub}>
+                Aún no se han configurado platillos en la carta de tu establecimiento.
               </Text>
             </View>
           ) : (
             categories.map((cat) => (
-              <View key={cat.id} style={styles.categoryBlock}>
-                <Text style={styles.categoryTitleText}>{cat.name.toUpperCase()}</Text>
-
-                {cat.dishes?.map((dish: any) => (
-                  <View key={dish.id} style={styles.dishCard}>
-                    <View style={styles.dishIcon}>
-                      <Utensils size={18} color={MONIQ.textSecondary} />
-                    </View>
-
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.dishName}>{dish.name}</Text>
+              <View key={cat.id} style={styles.categoryCard}>
+                <Text style={styles.categoryTitle}>{cat.name}</Text>
+                {cat.dishes.map((dish: any) => (
+                  <View key={dish.id} style={styles.dishRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.dishName, !dish.isAvailable && styles.dishUnavailable]}>
+                        {dish.name}
+                      </Text>
                       <Text style={styles.dishPrice}>S/ {dish.price?.toFixed(2)}</Text>
                     </View>
 
-                    <TouchableOpacity 
-                      style={[styles.dishBadge, dish.isAvailable ? styles.dishAvail : styles.dishSoldOut]}
+                    <TouchableOpacity
+                      style={[styles.availabilityToggle, dish.isAvailable ? styles.availYes : styles.availNo]}
                       onPress={() => handleToggleDish(dish.id)}
                     >
-                      <Text style={[styles.dishBadgeText, dish.isAvailable ? styles.dishAvailText : styles.dishSoldOutText]}>
+                      <Text style={[styles.availText, dish.isAvailable ? styles.availTextYes : styles.availTextNo]}>
                         {dish.isAvailable ? 'Disponible' : 'Agotado'}
                       </Text>
                     </TouchableOpacity>
@@ -974,318 +760,255 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </View>
       )}
 
-      {/* MODAL DE IMPRESIÓN INALÁMBRICA WI-FI */}
-      <Modal
-        visible={showPrintModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPrintModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
+      {/* ===================================================================== */}
+      {/* MODAL: IMPRESIÓN WI-FI / BLUETOOTH                                    */}
+      {/* ===================================================================== */}
+      <Modal visible={showPrintModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
           <View style={styles.printModalCard}>
-            <View style={styles.printModalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Printer size={18} color={MONIQ.cyan} />
-                <Text style={styles.printModalTitle}>Impresión Inalámbrica Wi-Fi</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowPrintModal(false)} style={{ padding: 4 }}>
-                <X size={18} color={MONIQ.textMuted} />
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalHeaderTitle}>Imprimir Plantillas QR</Text>
+              <TouchableOpacity onPress={() => setShowPrintModal(false)}>
+                <X size={20} color={MONIQ.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.printModalSubtitle}>
-              Selecciona el formato de impresión para stands de mesa, stickers o tickets:
-            </Text>
-
-            {/* SELECTOR DE FORMATO */}
-            <View style={styles.formatSelectorCol}>
-              <TouchableOpacity
-                style={[styles.formatOptionCard, printFormat === 'stand' && styles.formatOptionActive]}
-                onPress={() => setPrintFormat('stand')}
-              >
-                <View style={styles.formatOptionTop}>
-                  <FileText size={16} color={printFormat === 'stand' ? MONIQ.cyan : MONIQ.textSecondary} />
-                  <Text style={[styles.formatOptionTitle, printFormat === 'stand' && styles.formatOptionTitleActive]}>
-                    Stand de Mesa / Acrílico A6
+            <Text style={styles.printOptionLabel}>SELECCIONA EL FORMATO DE SALIDA:</Text>
+            <View style={styles.printOptionsRow}>
+              {[
+                { id: 'stand', label: 'Parante Mesa' },
+                { id: 'sticker', label: 'Sticker 80mm' },
+                { id: 'thermal', label: 'Ticket Térmico' }
+              ].map((opt) => (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={[styles.printOptBtn, printFormat === opt.id && styles.printOptBtnActive]}
+                  onPress={() => setPrintFormat(opt.id as any)}
+                >
+                  <Text style={[styles.printOptText, printFormat === opt.id && styles.printOptTextActive]}>
+                    {opt.label}
                   </Text>
-                </View>
-                <Text style={styles.formatOptionDesc}>105 x 148 mm • Ideal para portafotos o soportes acrílicos de salón.</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.formatOptionCard, printFormat === 'sticker' && styles.formatOptionActive, { marginTop: 8 }]}
-                onPress={() => setPrintFormat('sticker')}
-              >
-                <View style={styles.formatOptionTop}>
-                  <QrCode size={16} color={printFormat === 'sticker' ? MONIQ.cyan : MONIQ.textSecondary} />
-                  <Text style={[styles.formatOptionTitle, printFormat === 'sticker' && styles.formatOptionTitleActive]}>
-                    Sticker Cuadrado de Mostrador
-                  </Text>
-                </View>
-                <Text style={styles.formatOptionDesc}>80 x 80 mm • Formato compacto para pegar en caja, barra o vitrina.</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.formatOptionCard, printFormat === 'thermal' && styles.formatOptionActive, { marginTop: 8 }]}
-                onPress={() => setPrintFormat('thermal')}
-              >
-                <View style={styles.formatOptionTop}>
-                  <Printer size={16} color={printFormat === 'thermal' ? MONIQ.cyan : MONIQ.textSecondary} />
-                  <Text style={[styles.formatOptionTitle, printFormat === 'thermal' && styles.formatOptionTitleActive]}>
-                    Ticket Térmico POS (80mm)
-                  </Text>
-                </View>
-                <Text style={styles.formatOptionDesc}>80 mm ancho • Diseñado para impresoras térmicas de red o comandas.</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <View style={styles.printNoticeBanner}>
-              <Text style={styles.printNoticeText}>
-                Al tocar 'Enviar a Impresora', se abrirá el administrador de impresión de Android / Apple AirPrint que buscará automáticamente las impresoras conectadas a tu red Wi-Fi.
-              </Text>
-            </View>
-
-            <View style={styles.printModalActions}>
-              <TouchableOpacity
-                style={styles.cancelPrintBtn}
-                onPress={() => setShowPrintModal(false)}
-                disabled={isPrinting}
-              >
-                <Text style={styles.cancelPrintBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.executePrintBtn}
-                onPress={handleExecutePrint}
-                disabled={isPrinting}
-              >
-                {isPrinting ? (
-                  <ActivityIndicator size="small" color="#0B0B0E" />
-                ) : (
-                  <>
-                    <Printer size={15} color="#0B0B0E" style={{ marginRight: 6 }} />
-                    <Text style={styles.executePrintBtnText}>Enviar a Impresora</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.executePrintBtn}
+              onPress={handleExecutePrint}
+              disabled={isPrinting}
+            >
+              {isPrinting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Printer size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.executePrintBtnText}>Enviar a Impresora</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      <View style={{ height: 100 }} />
+      {/* ===================================================================== */}
+      {/* MODAL: QR DE TARJETA INDIVIDUAL                                      */}
+      {/* ===================================================================== */}
+      <Modal visible={!!selectedCardForQr} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.qrIndividualCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalHeaderTitle}>{selectedCardForQr?.label || 'Mesa'}</Text>
+              <TouchableOpacity onPress={() => setSelectedCardForQr(null)}>
+                <X size={20} color={MONIQ.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedCardForQr && (
+              <View style={{ alignItems: 'center', marginVertical: 14 }}>
+                <View style={styles.qrFrame}>
+                  <QRCode
+                    value={ENV.getCardUrl(selectedCardForQr.cardCode)}
+                    size={180}
+                    color="#0D0E13"
+                    backgroundColor="#FFFFFF"
+                  />
+                </View>
+                <Text style={styles.qrCardCodeText}>#{selectedCardForQr.cardCode}</Text>
+                <Text style={styles.qrCardUrlText}>{ENV.getCardUrl(selectedCardForQr.cardCode)}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.closeCardQrBtn}
+              onPress={() => setSelectedCardForQr(null)}
+            >
+              <Text style={styles.closeCardQrBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1
+    flex: 1,
+    backgroundColor: MONIQ.bg
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 16
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 100
-  },
-  loadingText: {
-    color: MONIQ.cyan,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 14
-  },
-  buyerHeader: {
-    marginBottom: 20
-  },
-  buyerHeaderTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2
-  },
-  buyerHeaderLogo: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    marginRight: 8
-  },
-  buyerPreTitle: {
-    color: MONIQ.cyan,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1
-  },
-  planBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1
-  },
-  planBadgeReviews: {
-    backgroundColor: 'rgba(255, 179, 64, 0.12)',
-    borderColor: 'rgba(255, 179, 64, 0.4)'
-  },
-  planBadgeMenu: {
-    backgroundColor: 'rgba(0, 229, 255, 0.12)',
-    borderColor: 'rgba(0, 229, 255, 0.4)'
-  },
-  planBadgeDual: {
-    backgroundColor: 'rgba(53, 201, 154, 0.12)',
-    borderColor: 'rgba(53, 201, 154, 0.4)'
-  },
-  planBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.8
-  },
-  buyerTitle: {
-    color: MONIQ.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    marginTop: 2
-  },
-  buyerMeta: {
-    color: MONIQ.textSecondary,
-    fontSize: 12,
-    marginTop: 2
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    marginBottom: 20
-  },
-  metricCard: {
-    flex: 1,
-    backgroundColor: MONIQ.surface,
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  metricVal: {
-    color: MONIQ.textPrimary,
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 8
-  },
-  metricSub: {
-    color: MONIQ.textSecondary,
-    fontSize: 11,
-    marginTop: 2
-  },
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: MONIQ.surface,
-    padding: 4,
-    borderRadius: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10
-  },
-  tabBtnActive: {
-    backgroundColor: MONIQ.surfaceElevated
-  },
-  tabText: {
-    color: MONIQ.textSecondary,
-    fontSize: 12,
-    fontWeight: '700'
-  },
-  tabTextActive: {
-    color: '#FFFFFF'
-  },
-  sectionTitle: {
-    color: MONIQ.textPrimary,
-    fontSize: 16,
-    fontWeight: '900'
-  },
-  sectionSubtitle: {
-    color: MONIQ.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-    marginBottom: 14
-  },
-  cardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: MONIQ.surface,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  cardIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: MONIQ.surfaceElevated,
+    backgroundColor: MONIQ.bg,
     justifyContent: 'center',
     alignItems: 'center'
   },
-  cardLabelText: {
-    color: MONIQ.textPrimary,
-    fontSize: 15,
-    fontWeight: '800'
-  },
-  cardCodeText: {
+  loadingText: {
     color: MONIQ.textSecondary,
-    fontSize: 12,
-    marginTop: 2
-  },
-  tapBadge: {
-    color: MONIQ.positive,
     fontSize: 13,
-    fontWeight: '800'
+    marginTop: 12
   },
-  liveIndicator: {
+  buyerHeader: {
+    backgroundColor: MONIQ.surface,
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder,
+    marginBottom: 14
+  },
+  buyerHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14
+  },
+  buyerHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4
+    flex: 1
+  },
+  avatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  avatarText: {
+    color: MONIQ.accent,
+    fontSize: 16,
+    fontWeight: '800'
+  },
+  buyerTitle: {
+    color: MONIQ.textPrimary,
+    fontSize: 17,
+    fontWeight: '800'
+  },
+  buyerMeta: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    marginTop: 2
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: MONIQ.positive,
-    marginRight: 4
+    marginRight: 6
   },
-  liveText: {
+  livePillText: {
     color: MONIQ.positive,
     fontSize: 10,
+    fontWeight: '800'
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: MONIQ.bg,
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder,
+    alignItems: 'center'
+  },
+  metricVal: {
+    color: MONIQ.textPrimary,
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 4
+  },
+  metricSub: {
+    color: MONIQ.textMuted,
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 2
+  },
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: MONIQ.surface,
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10
+  },
+  tabBtnActive: {
+    backgroundColor: MONIQ.accent
+  },
+  tabText: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
     fontWeight: '700'
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800'
   },
   noticeCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 12,
     padding: 12,
-    borderRadius: 14,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1
   },
   noticeSuccess: {
-    backgroundColor: 'rgba(53, 201, 154, 0.1)',
-    borderColor: 'rgba(53, 201, 154, 0.3)'
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: 'rgba(16, 185, 129, 0.3)'
   },
   noticeError: {
-    backgroundColor: 'rgba(255, 77, 106, 0.1)',
-    borderColor: 'rgba(255, 77, 106, 0.3)'
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: 'rgba(239, 68, 68, 0.3)'
   },
   noticeText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '700'
+    fontSize: 11,
+    fontWeight: '600'
   },
   noticeTextSuccess: {
     color: MONIQ.positive
@@ -1293,357 +1016,20 @@ const styles = StyleSheet.create({
   noticeTextError: {
     color: MONIQ.negative
   },
-
-  // QR MULTIFUNCIONAL
-  qrDisplayCard: {
-    backgroundColor: MONIQ.surface,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
+  sectionHeaderWrap: {
+    marginBottom: 12
   },
-  qrWrapper: {
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
-    marginBottom: 16
-  },
-  canonicalBox: {
-    width: '100%',
-    backgroundColor: MONIQ.bg,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  canonicalLabel: {
-    color: MONIQ.textSecondary,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 2
-  },
-  canonicalUrl: {
-    color: MONIQ.cyan,
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontWeight: '700'
-  },
-  qrBadgeNotice: {
-    backgroundColor: MONIQ.bg,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder,
-    marginTop: 10,
-    marginBottom: 14
-  },
-  qrBadgeNoticeText: {
-    color: MONIQ.textSecondary,
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 16
-  },
-  qrActionBtnsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%'
-  },
-  copyQrBtn: {
-    flex: 1,
-    backgroundColor: MONIQ.surfaceElevated,
-    height: 44,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  copyQrBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700'
-  },
-  testQrBtn: {
-    flex: 1,
-    backgroundColor: MONIQ.cyan,
-    height: 44,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  testQrBtnText: {
-    color: '#0B0B0E',
-    fontSize: 12,
-    fontWeight: '800'
-  },
-  shareQrBtn: {
-    flex: 1,
-    backgroundColor: '#1E293B',
-    height: 44,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)'
-  },
-  shareQrBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800'
-  },
-  printQrBtn: {
-    flex: 1,
-    backgroundColor: MONIQ.positive,
-    height: 44,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  printQrBtnText: {
-    color: '#0B0B0E',
-    fontSize: 12,
-    fontWeight: '800'
-  },
-
-  // MODOS DE ENRUTAMIENTO
-  modeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: MONIQ.surface,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  modeCardLocked: {
-    opacity: 0.45,
-    borderColor: 'rgba(255, 255, 255, 0.05)'
-  },
-  textLocked: {
-    color: MONIQ.textMuted
-  },
-  modeCardActiveReviews: {
-    borderColor: MONIQ.gold,
-    backgroundColor: 'rgba(255, 179, 64, 0.08)'
-  },
-  modeCardActiveMenu: {
-    borderColor: MONIQ.cyan,
-    backgroundColor: 'rgba(0, 229, 255, 0.08)'
-  },
-  modeCardActiveHub: {
-    borderColor: MONIQ.positive,
-    backgroundColor: 'rgba(53, 201, 154, 0.08)'
-  },
-  modeIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  modeCardTitle: {
+  sectionTitle: {
     color: MONIQ.textPrimary,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '800'
   },
-  modeCardDesc: {
-    color: MONIQ.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: 4
-  },
-  activePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1
-  },
-  activePillText: {
-    fontSize: 9,
-    fontWeight: '800'
-  },
-  lockedPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)'
-  },
-  lockedPillText: {
-    color: MONIQ.textMuted,
-    fontSize: 8,
-    fontWeight: '800'
-  },
-
-  // RUTAS Y ENLACES
-  routingCard: {
-    backgroundColor: MONIQ.surface,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  routingCardLocked: {
-    backgroundColor: '#0E111A',
-    borderColor: 'rgba(255, 255, 255, 0.06)'
-  },
-  routingCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16
-  },
-  routingIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  routingCardTitle: {
-    color: MONIQ.textPrimary,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5
-  },
-  routingCardSub: {
+  sectionSubtitle: {
     color: MONIQ.textSecondary,
     fontSize: 11,
     marginTop: 2
   },
-  planStatusPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1
-  },
-  planStatusActiveReviews: {
-    borderColor: 'rgba(255, 179, 64, 0.3)',
-    backgroundColor: 'rgba(255, 179, 64, 0.08)'
-  },
-  planStatusActiveMenu: {
-    borderColor: 'rgba(0, 229, 255, 0.3)',
-    backgroundColor: 'rgba(0, 229, 255, 0.08)'
-  },
-  planStatusActiveHub: {
-    borderColor: 'rgba(53, 201, 154, 0.3)',
-    backgroundColor: 'rgba(53, 201, 154, 0.08)'
-  },
-  planStatusLocked: {
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)'
-  },
-  planStatusText: {
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.5
-  },
-  lockedBlockMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: MONIQ.bg,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)'
-  },
-  lockedBlockText: {
-    flex: 1,
-    color: MONIQ.textMuted,
-    fontSize: 11,
-    lineHeight: 16
-  },
-  routingInputLabel: {
-    color: MONIQ.textSecondary,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 6
-  },
-  routingTextInput: {
-    height: 48,
-    backgroundColor: MONIQ.bg,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    color: MONIQ.textPrimary,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder,
-    fontSize: 13
-  },
-  routingHelpText: {
-    color: MONIQ.textMuted,
-    fontSize: 11,
-    marginTop: 6
-  },
-  redirectOptionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4
-  },
-  redirectOption: {
-    flex: 1,
-    backgroundColor: MONIQ.bg,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder,
-    alignItems: 'center'
-  },
-  redirectOptionActive: {
-    borderColor: MONIQ.gold,
-    backgroundColor: 'rgba(255, 179, 64, 0.08)'
-  },
-  redirectOptionText: {
-    color: MONIQ.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center'
-  },
-  redirectOptionTextActive: {
-    color: MONIQ.gold
-  },
-  testLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-    paddingVertical: 10,
-    backgroundColor: MONIQ.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  testLinkBtnText: {
-    color: MONIQ.gold,
-    fontSize: 12,
-    fontWeight: '700'
-  },
-  saveRoutingBtn: {
-    backgroundColor: MONIQ.accent,
-    height: 50,
-    borderRadius: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20
-  },
-  saveRoutingBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800'
-  },
-
-  // CARTA Y MENÚ
-  emptyStateBox: {
+  emptyCardBox: {
     backgroundColor: MONIQ.surface,
     borderRadius: 18,
     padding: 24,
@@ -1651,82 +1037,305 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: MONIQ.cardBorder
   },
-  emptyStateTitle: {
-    color: MONIQ.textPrimary,
-    fontSize: 15,
-    fontWeight: '800'
-  },
-  emptyStateSub: {
-    color: MONIQ.textSecondary,
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4
-  },
-  categoryBlock: {
-    marginBottom: 20
-  },
-  categoryTitleText: {
-    color: MONIQ.cyan,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 10
-  },
-  dishCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: MONIQ.surface,
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
-  },
-  dishIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: MONIQ.surfaceElevated,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  dishName: {
+  emptyCardTitle: {
     color: MONIQ.textPrimary,
     fontSize: 14,
     fontWeight: '700'
   },
-  dishPrice: {
-    color: MONIQ.textSecondary,
-    fontSize: 12,
-    marginTop: 2
-  },
-  dishBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1
-  },
-  dishAvail: {
-    backgroundColor: 'rgba(53, 201, 154, 0.1)',
-    borderColor: 'rgba(53, 201, 154, 0.3)'
-  },
-  dishSoldOut: {
-    backgroundColor: 'rgba(255, 77, 106, 0.1)',
-    borderColor: 'rgba(255, 77, 106, 0.3)'
-  },
-  dishBadgeText: {
+  emptyCardSub: {
+    color: MONIQ.textMuted,
     fontSize: 11,
+    textAlign: 'center',
+    marginTop: 4
+  },
+  tableCardItem: {
+    backgroundColor: MONIQ.surface,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  tableCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  tableIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  tableCardLabel: {
+    color: MONIQ.textPrimary,
+    fontSize: 14,
     fontWeight: '800'
   },
-  dishAvailText: {
+  tableCardCode: {
+    color: MONIQ.textMuted,
+    fontSize: 10,
+    fontFamily: 'monospace',
+    marginTop: 1
+  },
+  tapCounterBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: MONIQ.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  tapCounterText: {
+    color: MONIQ.positive,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  destinationDirectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: MONIQ.bg,
+    borderRadius: 8,
+    padding: 8,
+    marginVertical: 10
+  },
+  destLabelMicro: {
+    color: MONIQ.textSecondary,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginRight: 6
+  },
+  destValHighlight: {
+    color: MONIQ.cyan,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  cardActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 229, 255, 0.08)',
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.2)'
+  },
+  cardActionBtnText: {
+    color: MONIQ.cyan,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  modeCardsContainer: {
+    gap: 10,
+    marginBottom: 14
+  },
+  modeSelectCard: {
+    backgroundColor: MONIQ.surface,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: MONIQ.cardBorder
+  },
+  modeSelectCardActive: {
+    borderColor: MONIQ.cyan,
+    backgroundColor: 'rgba(0, 229, 255, 0.04)'
+  },
+  modeSelectTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  modeRadioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: MONIQ.textMuted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10
+  },
+  modeRadioCircleActive: {
+    borderColor: MONIQ.cyan
+  },
+  modeRadioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: MONIQ.cyan
+  },
+  modeSelectTitle: {
+    color: MONIQ.textPrimary,
+    fontSize: 14,
+    fontWeight: '800'
+  },
+  modeSelectDesc: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
+    marginLeft: 28
+  },
+  routingFormCard: {
+    backgroundColor: MONIQ.surface,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  inputHeading: {
+    color: MONIQ.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 6
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  formInputText: {
+    flex: 1,
+    backgroundColor: MONIQ.bg,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 42,
+    color: MONIQ.textPrimary,
+    fontSize: 12,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  testLinkBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: MONIQ.bg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  saveRoutingBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: MONIQ.accent,
+    height: 46,
+    borderRadius: 12,
+    marginTop: 20
+  },
+  saveRoutingBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  qrDisplayCard: {
+    backgroundColor: MONIQ.surface,
+    borderRadius: 20,
+    padding: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  qrFrame: {
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16
+  },
+  qrNoticeText: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+    marginVertical: 14,
+    lineHeight: 16
+  },
+  qrButtonGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8
+  },
+  qrPillActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: MONIQ.accent,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent'
+  },
+  qrPillActionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  categoryCard: {
+    backgroundColor: MONIQ.surface,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  categoryTitle: {
+    color: MONIQ.cyan,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 10
+  },
+  dishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.04)'
+  },
+  dishName: {
+    color: MONIQ.textPrimary,
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  dishUnavailable: {
+    color: MONIQ.textMuted,
+    textDecorationLine: 'line-through'
+  },
+  dishPrice: {
+    color: MONIQ.positive,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2
+  },
+  availabilityToggle: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6
+  },
+  availYes: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)'
+  },
+  availNo: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)'
+  },
+  availText: {
+    fontSize: 10,
+    fontWeight: '800'
+  },
+  availTextYes: {
     color: MONIQ.positive
   },
-  dishSoldOutText: {
+  availTextNo: {
     color: MONIQ.negative
   },
-
-  // MODAL IMPRESIÓN WI-FI
-  modalBackdrop: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
@@ -1735,106 +1344,103 @@ const styles = StyleSheet.create({
   },
   printModalCard: {
     width: '100%',
-    backgroundColor: '#121622',
+    maxWidth: 380,
+    backgroundColor: MONIQ.surface,
     borderRadius: 22,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)'
+    borderColor: MONIQ.cardBorder
   },
-  printModalHeader: {
+  modalHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6
-  },
-  printModalTitle: {
-    color: '#F0F4FC',
-    fontSize: 16,
-    fontWeight: '900'
-  },
-  printModalSubtitle: {
-    color: MONIQ.textSecondary,
-    fontSize: 11,
-    marginBottom: 16,
-    lineHeight: 16
-  },
-  formatSelectorCol: {
-    gap: 8,
+    alignItems: 'center',
     marginBottom: 14
   },
-  formatOptionCard: {
-    backgroundColor: '#090B10',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)'
+  modalHeaderTitle: {
+    color: MONIQ.textPrimary,
+    fontSize: 16,
+    fontWeight: '800'
   },
-  formatOptionActive: {
+  printOptionLabel: {
+    color: MONIQ.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 8
+  },
+  printOptionsRow: {
+    gap: 8,
+    marginBottom: 16
+  },
+  printOptBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: MONIQ.bg,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder,
+    alignItems: 'center'
+  },
+  printOptBtnActive: {
     borderColor: MONIQ.cyan,
     backgroundColor: 'rgba(0, 229, 255, 0.08)'
   },
-  formatOptionTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4
-  },
-  formatOptionTitle: {
-    color: MONIQ.textSecondary,
-    fontSize: 12,
-    fontWeight: '800'
-  },
-  formatOptionTitleActive: {
-    color: '#FFFFFF'
-  },
-  formatOptionDesc: {
-    color: MONIQ.textMuted,
-    fontSize: 10,
-    lineHeight: 14,
-    marginLeft: 24
-  },
-  printNoticeBanner: {
-    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.3)',
-    marginBottom: 16
-  },
-  printNoticeText: {
-    color: '#93C5FD',
-    fontSize: 10,
-    lineHeight: 14
-  },
-  printModalActions: {
-    flexDirection: 'row',
-    gap: 10
-  },
-  cancelPrintBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#1E2536',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  cancelPrintBtnText: {
+  printOptText: {
     color: MONIQ.textSecondary,
     fontSize: 12,
     fontWeight: '700'
   },
+  printOptTextActive: {
+    color: MONIQ.cyan
+  },
   executePrintBtn: {
-    flex: 1.4,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: MONIQ.cyan,
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'center'
+    backgroundColor: MONIQ.accent,
+    height: 46,
+    borderRadius: 12
   },
   executePrintBtnText: {
-    color: '#0B0B0E',
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  qrIndividualCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: MONIQ.surface,
+    borderRadius: 22,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  qrCardCodeText: {
+    color: MONIQ.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 12
+  },
+  qrCardUrlText: {
+    color: MONIQ.cyan,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    marginTop: 4
+  },
+  closeCardQrBtn: {
+    width: '100%',
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: MONIQ.surfaceElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8
+  },
+  closeCardQrBtnText: {
+    color: MONIQ.textPrimary,
     fontSize: 12,
-    fontWeight: '900'
+    fontWeight: '700'
   }
 });

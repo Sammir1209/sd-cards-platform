@@ -5,7 +5,8 @@ import {
   SafeAreaView,
   Text,
   TouchableOpacity,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LogOut } from 'lucide-react-native';
@@ -72,16 +73,23 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
 
-      {/* HEADER ERGONÓMICO CON BOTÓN DE CIERRE DE SESIÓN */}
+      {/* HEADER ERGONOMICO CON LOGO MINIMALISTA Y CIERRE DE SESION */}
       <View style={styles.appHeader}>
-        <View>
-          <Text style={styles.headerRoleMicro}>
-            {session.role === 'superadmin' ? 'SUPERADMIN • SAM SERVICES' : 'PORTAL EMPRESARIAL SAM SERVICES'}
-          </Text>
-          <Text style={styles.headerUserEmail}>{session.email}</Text>
+        <View style={styles.headerLeft}>
+          <Image
+            source={require('./assets/logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <View style={{ marginLeft: 10 }}>
+            <Text style={styles.headerRoleMicro}>
+              {session.role === 'superadmin' ? 'PANEL MAESTRO' : 'PORTAL COMERCIAL'}
+            </Text>
+            <Text style={styles.headerUserEmail}>{session.email}</Text>
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
           <LogOut size={16} color={MONIQ.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -113,6 +121,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: MONIQ.cardBorder,
     backgroundColor: MONIQ.bg
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  headerLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 8
   },
   headerRoleMicro: {
     color: MONIQ.cyan,

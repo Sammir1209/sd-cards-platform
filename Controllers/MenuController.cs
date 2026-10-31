@@ -59,30 +59,9 @@ public class MenuController : Controller
             return RedirectToAction(nameof(ActivateCard), new { cardCode = card.CardCode });
         }
 
-        // CASO MODO SMART HUB MULTIFUNCIONAL (3)
-        if (card.Business.ActiveRoutingMode == 3)
-        {
-            return View("SmartHub", card.Business);
-        }
-
-        // 2. CASO TARJETA DE RESEÑAS
-        if (card.CardType == TemplateType.GoogleReviews || card.Business.ActiveRoutingMode == 1)
-        {
-            if (!string.IsNullOrWhiteSpace(card.Business.GoogleMapsUrl) && card.Business.AutoRedirectReviews)
-            {
-                string targetUrl = card.Business.GoogleMapsUrl.Trim();
-                if (!targetUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !targetUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                {
-                    targetUrl = "https://" + targetUrl;
-                }
-                // REDIRECCION INSTANTANEA (0ms) a Google Maps para 5 estrellas
-                return Redirect(targetUrl);
-            }
-            return View("GoogleReviews", card.Business);
-        }
-
-        // 3. CASO TARJETA DE MENÚ ONLINE
-        if (card.CardType == TemplateType.MenuDigital || card.Business.ActiveRoutingMode == 2)
+        // REDIRECCION DIRECTA (0ms - Sin intermediarios ni hubs)
+        // Prioridad A: Tarjeta asignada específicamente a Menú Digital
+        if (card.CardType == TemplateType.MenuDigital || (card.Business.ActiveRoutingMode == 2 && card.CardType != TemplateType.GoogleReviews))
         {
             if (!string.IsNullOrWhiteSpace(card.Business.CustomDomain))
             {
@@ -96,12 +75,24 @@ public class MenuController : Controller
             return RedirectToAction("Menu", "Site", new { slug = card.Business.Slug });
         }
 
+        // Prioridad B: Tarjeta asignada a Reseñas Google (Modo por defecto y más popular)
+        if (!string.IsNullOrWhiteSpace(card.Business.GoogleMapsUrl))
+        {
+            string targetUrl = card.Business.GoogleMapsUrl.Trim();
+            if (!targetUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !targetUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                targetUrl = "https://" + targetUrl;
+            }
+            return Redirect(targetUrl);
+        }
+
+        // Si no tiene enlace de Google Maps configurado aún, redirigir a su Carta Digital
         return RedirectToAction("Menu", "Site", new { slug = card.Business.Slug });
     }
 
     /// <summary>
     /// Despachador de QR Multifuncional Dinámico: /qr/{slug} o /q/{slug}
-    /// Permite redirigir según el modo activo configurado desde la app móvil sin reimprimir el QR físico.
+    /// Redirección 100% directa y sin páginas intermedias.
     /// </summary>
     [HttpGet("qr/{slug}")]
     [HttpGet("q/{slug}")]
@@ -122,12 +113,6 @@ public class MenuController : Controller
             return View("InactiveBusiness", business);
         }
 
-        // Modo 3: Smart Hub Multifuncional
-        if (business.ActiveRoutingMode == 3)
-        {
-            return View("SmartHub", business);
-        }
-
         // Modo 2: Menú Digital Directo
         if (business.ActiveRoutingMode == 2)
         {
@@ -143,8 +128,8 @@ public class MenuController : Controller
             return RedirectToAction("Menu", "Site", new { slug = business.Slug });
         }
 
-        // Modo 1 (Default): Reseñas Google Maps Directas
-        if (!string.IsNullOrWhiteSpace(business.GoogleMapsUrl) && business.AutoRedirectReviews)
+        // Modo Reseñas Directo (Modo 1, 3 o Default)
+        if (!string.IsNullOrWhiteSpace(business.GoogleMapsUrl))
         {
             string targetUrl = business.GoogleMapsUrl.Trim();
             if (!targetUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !targetUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
@@ -154,7 +139,7 @@ public class MenuController : Controller
             return Redirect(targetUrl);
         }
 
-        return View("GoogleReviews", business);
+        return RedirectToAction("Menu", "Site", new { slug = business.Slug });
     }
 
     /// <summary>

@@ -8,11 +8,14 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
-  Image
+  Image,
+  Dimensions
 } from 'react-native';
-import { Mail, Lock, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react-native';
 import { MONIQ } from '../../theme/colors';
 import { api } from '../../services/api';
+
+const { width } = Dimensions.get('window');
 
 interface LoginScreenProps {
   onLogin: (email: string, role: 'superadmin' | 'buyer', businessId?: number) => void;
@@ -24,14 +27,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPassFocused, setIsPassFocused] = useState(false);
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      setErrorMsg('Ingresa tu correo o identificador de acceso.');
+      setErrorMsg('Ingresa tu identificador o correo.');
       return;
     }
     if (!password.trim()) {
-      setErrorMsg('Ingresa tu contrasena de acceso.');
+      setErrorMsg('Ingresa tu clave de acceso.');
       return;
     }
     setErrorMsg('');
@@ -57,81 +62,99 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <View style={styles.brandBox}>
-        <Image
-          source={require('../../../assets/logo.png')}
-          style={styles.brandLogo}
-          resizeMode="contain"
-        />
-        <View style={styles.brandBadge}>
-          <ShieldCheck size={14} color={MONIQ.cyan} />
-          <Text style={styles.brandBadgeText}>SAM SERVICES</Text>
-        </View>
-        <Text style={styles.brandTitle}>Bienvenido</Text>
-        <Text style={styles.brandSub}>
-          Ingresa tus credenciales para acceder a la gestión de las Tarjetas NFC y servicios.
-        </Text>
-      </View>
-
-      <View style={styles.formCard}>
-        {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-
-        <Text style={styles.inputLabel}>CORREO ELECTRÓNICO</Text>
-        <View style={styles.inputWrap}>
-          <Mail size={18} color={MONIQ.textSecondary} style={{ marginRight: 12 }} />
-          <TextInput
-            style={styles.textInput}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="usuario@negocio.com"
-            placeholderTextColor={MONIQ.textMuted}
-            autoCapitalize="none"
-          />
+      <View style={styles.contentWrap}>
+        
+        {/* LOGO E IDENTIFICADOR MINIMALISTA */}
+        <View style={styles.headerSection}>
+          <View style={styles.logoRing}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.headerTitle}>Acceso al Sistema</Text>
+          <Text style={styles.headerSubtitle}>
+            Administracion de tarjetas fisicas y servicios
+          </Text>
         </View>
 
-        <Text style={[styles.inputLabel, { marginTop: 16 }]}>CONTRASEÑA</Text>
-        <View style={styles.inputWrap}>
-          <Lock size={18} color={MONIQ.textSecondary} style={{ marginRight: 12 }} />
-          <TextInput
-            style={styles.textInput}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            placeholder="••••••••"
-            placeholderTextColor={MONIQ.textMuted}
-          />
+        {/* TARJETA DE FORMULARIO CON ESTILO FINTECH */}
+        <View style={styles.formCard}>
+          {errorMsg ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            </View>
+          ) : null}
+
+          {/* INPUT: CORREO */}
+          <Text style={styles.inputLabel}>USUARIO / CORREO</Text>
+          <View style={[styles.inputContainer, isEmailFocused && styles.inputFocused]}>
+            <Mail size={18} color={isEmailFocused ? MONIQ.cyan : MONIQ.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput
+              style={styles.textInput}
+              value={email}
+              onChangeText={setEmail}
+              onFocus={() => setIsEmailFocused(true)}
+              onBlur={() => setIsEmailFocused(false)}
+              placeholder="admin o usuario@negocio.com"
+              placeholderTextColor={MONIQ.textMuted}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
+
+          {/* INPUT: CONTRASEÑA */}
+          <Text style={[styles.inputLabel, { marginTop: 18 }]}>CLAVE DE SEGURIDAD</Text>
+          <View style={[styles.inputContainer, isPassFocused && styles.inputFocused]}>
+            <Lock size={18} color={isPassFocused ? MONIQ.cyan : MONIQ.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput
+              style={styles.textInput}
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setIsPassFocused(true)}
+              onBlur={() => setIsPassFocused(false)}
+              secureTextEntry={!showPassword}
+              placeholder="Clave de acceso"
+              placeholderTextColor={MONIQ.textMuted}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <EyeOff size={18} color={MONIQ.textSecondary} />
+              ) : (
+                <Eye size={18} color={MONIQ.textSecondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* BOTON DE ACCION PRINCIPAL */}
           <TouchableOpacity
-            style={styles.eyeBtn}
-            onPress={() => setShowPassword(!showPassword)}
+            style={styles.submitBtn}
+            onPress={handleSubmit}
+            disabled={loading}
+            activeOpacity={0.85}
           >
-            {showPassword ? (
-              <EyeOff size={18} color={MONIQ.textSecondary} />
+            {loading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Eye size={18} color={MONIQ.textSecondary} />
+              <>
+                <Text style={styles.submitBtnText}>Entrar al Sistema</Text>
+                <ArrowRight size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
+              </>
             )}
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.submitBtn}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <Text style={styles.submitBtnText}>Iniciar Sesión</Text>
-              <ArrowRight size={18} color="#FFFFFF" style={{ marginLeft: 8 }} />
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+        {/* PIE DE SEGURIDAD */}
+        <View style={styles.footerWrap}>
+          <Text style={styles.footerText}>
+            Canal Seguro • Encriptacion de Hardware
+          </Text>
+        </View>
 
-      <View style={styles.footerNote}>
-        <Text style={styles.footerText}>
-          Ecosistema Seguro Sam Services • Conexión Cifrada
-        </Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -140,82 +163,102 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center'
+    backgroundColor: MONIQ.bg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20
   },
-  brandBox: {
+  contentWrap: {
+    width: '100%',
+    maxWidth: 420,
+    alignItems: 'center'
+  },
+  headerSection: {
+    alignItems: 'center',
     marginBottom: 28
   },
-  brandLogo: {
-    width: 80,
-    height: 80,
+  logoRing: {
+    width: 76,
+    height: 76,
     borderRadius: 22,
-    marginBottom: 16
-  },
-  brandBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: MONIQ.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    alignSelf: 'flex-start',
-    marginBottom: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: MONIQ.cardBorder
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 16,
+    shadowColor: MONIQ.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4
   },
-  brandBadgeText: {
-    color: MONIQ.cyan,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginLeft: 6
+  logoImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 16
   },
-  brandTitle: {
+  headerTitle: {
     color: MONIQ.textPrimary,
-    fontSize: 32,
-    fontWeight: '900'
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5
   },
-  brandSub: {
+  headerSubtitle: {
     color: MONIQ.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'center'
   },
   formCard: {
+    width: '100%',
     backgroundColor: MONIQ.surface,
-    borderRadius: 24,
+    borderRadius: 22,
     padding: 22,
     borderWidth: 1,
     borderColor: MONIQ.cardBorder
+  },
+  errorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)'
   },
   errorText: {
     color: MONIQ.negative,
     fontSize: 12,
     fontWeight: '700',
-    marginBottom: 12
+    textAlign: 'center'
   },
   inputLabel: {
     color: MONIQ.textSecondary,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 1.1,
     marginBottom: 8
   },
-  inputWrap: {
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: MONIQ.bg,
     borderRadius: 14,
     paddingHorizontal: 16,
     height: 52,
-    borderWidth: 1,
-    borderColor: MONIQ.cardBorder
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  inputFocused: {
+    borderColor: MONIQ.cyan,
+    backgroundColor: 'rgba(0, 229, 255, 0.02)'
   },
   textInput: {
     flex: 1,
     color: MONIQ.textPrimary,
-    fontSize: 14
+    fontSize: 14,
+    fontWeight: '600'
   },
   eyeBtn: {
     padding: 6
@@ -223,23 +266,29 @@ const styles = StyleSheet.create({
   submitBtn: {
     backgroundColor: MONIQ.accent,
     height: 52,
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24
+    marginTop: 24,
+    shadowColor: MONIQ.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3
   },
   submitBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800'
   },
-  footerNote: {
-    marginTop: 32,
+  footerWrap: {
+    marginTop: 28,
     alignItems: 'center'
   },
   footerText: {
     color: MONIQ.textMuted,
-    fontSize: 11
+    fontSize: 11,
+    fontWeight: '600'
   }
 });
