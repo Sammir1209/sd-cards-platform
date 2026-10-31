@@ -56,6 +56,7 @@ import { QrModal } from '../../components/QrModal';
 import { CameraScanModal } from '../../components/CameraScanModal';
 import { UpdateService, UpdateCheckResult } from '../../services/updateService';
 import { UpdateModal } from '../../components/UpdateModal';
+import { PERU_DEPARTMENTS } from '../../data/peruLocations';
 
 const { width } = Dimensions.get('window');
 
@@ -133,17 +134,21 @@ export const SuperAdminScreen: React.FC = () => {
     targetUrl: string;
   }>({ visible: false, cardCode: '', label: '', targetUrl: '' });
 
-  // Modal Crear Cliente
+  // Modal Crear Cliente con Ubigeo Perú
   const [showCreateBizModal, setShowCreateBizModal] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [newBizName, setNewBizName] = useState('');
   const [newBizOwner, setNewBizOwner] = useState('');
+  const [newBizRuc, setNewBizRuc] = useState('');
   const [newBizEmail, setNewBizEmail] = useState('');
   const [newBizPassword, setNewBizPassword] = useState('');
   const [newBizPhone, setNewBizPhone] = useState('');
-  const [newBizCity, setNewBizCity] = useState('Lima');
+  const [selectedDeptId, setSelectedDeptId] = useState('lima');
+  const [selectedProvId, setSelectedProvId] = useState('lima');
+  const [selectedDistrictName, setSelectedDistrictName] = useState('Miraflores');
   const [newBizAddress, setNewBizAddress] = useState('');
   const [newBizPlanMonths, setNewBizPlanMonths] = useState(12);
+  const [newBizServices, setNewBizServices] = useState<number>(1);
 
   // Modal Asignar Tarjeta Rápida
   const [showAddCardModal, setShowAddCardModal] = useState(false);
@@ -249,6 +254,10 @@ export const SuperAdminScreen: React.FC = () => {
       });
       return;
     }
+    const currentDept = PERU_DEPARTMENTS.find(d => d.id === selectedDeptId) || PERU_DEPARTMENTS[0];
+    const currentProv = currentDept.provinces.find(p => p.id === selectedProvId) || currentDept.provinces[0];
+    const locationCity = `${selectedDistrictName}, ${currentProv.name} - ${currentDept.name}`;
+
     setCreateLoading(true);
     const res = await api.registerBusiness({
       name: newBizName.trim(),
@@ -256,9 +265,10 @@ export const SuperAdminScreen: React.FC = () => {
       email: newBizEmail.trim(),
       password: newBizPassword.trim() || undefined,
       phone: newBizPhone.trim(),
-      city: newBizCity.trim(),
-      address: newBizAddress.trim(),
-      services: 1,
+      ruc: newBizRuc.trim() || undefined,
+      city: locationCity,
+      address: newBizAddress.trim() || selectedDistrictName,
+      services: newBizServices,
       planMonths: newBizPlanMonths
     });
     setCreateLoading(false);
@@ -1184,58 +1194,65 @@ export const SuperAdminScreen: React.FC = () => {
       </ScrollView>
 
       {/* ==================================================================== */}
-      {/* BARRA DE NAVEGACION FLOTANTE CON 5 SESIONES FUNCIONALES              */}
+      {/* BARRA DE NAVEGACION FLOTANTE ESTILO IPHONE (IOS DOCK GLASS)          */}
       {/* ==================================================================== */}
-      <View style={styles.bottomBarContainer}>
-        <TouchableOpacity
-          style={[styles.bottomBarItem, activeTab === 0 && styles.bottomBarItemActive]}
-          onPress={() => setActiveTab(0)}
-        >
-          <Home size={19} color={activeTab === 0 ? MONIQ.cyan : MONIQ.textSecondary} />
-          <Text style={[styles.bottomBarLabel, activeTab === 0 && styles.bottomBarLabelActive]}>
-            Panel
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.floatingDockWrapper} pointerEvents="box-none">
+        <View style={styles.floatingDockBar}>
+          <TouchableOpacity
+            style={[styles.dockTabItem, activeTab === 0 && styles.dockTabItemActive]}
+            onPress={() => setActiveTab(0)}
+            activeOpacity={0.7}
+          >
+            <Home size={18} color={activeTab === 0 ? MONIQ.cyan : MONIQ.textSecondary} />
+            <Text style={[styles.dockTabLabel, activeTab === 0 && styles.dockTabLabelActive]}>
+              Panel
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.bottomBarItem, activeTab === 1 && styles.bottomBarItemActive]}
-          onPress={() => setActiveTab(1)}
-        >
-          <Users size={19} color={activeTab === 1 ? MONIQ.cyan : MONIQ.textSecondary} />
-          <Text style={[styles.bottomBarLabel, activeTab === 1 && styles.bottomBarLabelActive]}>
-            Clientes
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dockTabItem, activeTab === 1 && styles.dockTabItemActive]}
+            onPress={() => setActiveTab(1)}
+            activeOpacity={0.7}
+          >
+            <Users size={18} color={activeTab === 1 ? MONIQ.cyan : MONIQ.textSecondary} />
+            <Text style={[styles.dockTabLabel, activeTab === 1 && styles.dockTabLabelActive]}>
+              Clientes
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.bottomBarItem, activeTab === 2 && styles.bottomBarItemActive]}
-          onPress={() => setActiveTab(2)}
-        >
-          <Radio size={19} color={activeTab === 2 ? MONIQ.cyan : MONIQ.textSecondary} />
-          <Text style={[styles.bottomBarLabel, activeTab === 2 && styles.bottomBarLabelActive]}>
-            Taller NFC
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dockTabItem, activeTab === 2 && styles.dockTabItemActive]}
+            onPress={() => setActiveTab(2)}
+            activeOpacity={0.7}
+          >
+            <Radio size={18} color={activeTab === 2 ? MONIQ.cyan : MONIQ.textSecondary} />
+            <Text style={[styles.dockTabLabel, activeTab === 2 && styles.dockTabLabelActive]}>
+              Taller NFC
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.bottomBarItem, activeTab === 3 && styles.bottomBarItemActive]}
-          onPress={() => setActiveTab(3)}
-        >
-          <Activity size={19} color={activeTab === 3 ? MONIQ.cyan : MONIQ.textSecondary} />
-          <Text style={[styles.bottomBarLabel, activeTab === 3 && styles.bottomBarLabelActive]}>
-            Auditoría
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dockTabItem, activeTab === 3 && styles.dockTabItemActive]}
+            onPress={() => setActiveTab(3)}
+            activeOpacity={0.7}
+          >
+            <Activity size={18} color={activeTab === 3 ? MONIQ.cyan : MONIQ.textSecondary} />
+            <Text style={[styles.dockTabLabel, activeTab === 3 && styles.dockTabLabelActive]}>
+              Auditoría
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.bottomBarItem, activeTab === 4 && styles.bottomBarItemActive]}
-          onPress={() => setActiveTab(4)}
-        >
-          <Settings size={19} color={activeTab === 4 ? MONIQ.cyan : MONIQ.textSecondary} />
-          <Text style={[styles.bottomBarLabel, activeTab === 4 && styles.bottomBarLabelActive]}>
-            Ajustes
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dockTabItem, activeTab === 4 && styles.dockTabItemActive]}
+            onPress={() => setActiveTab(4)}
+            activeOpacity={0.7}
+          >
+            <Settings size={18} color={activeTab === 4 ? MONIQ.cyan : MONIQ.textSecondary} />
+            <Text style={[styles.dockTabLabel, activeTab === 4 && styles.dockTabLabelActive]}>
+              Ajustes
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ==================================================================== */}
@@ -1286,20 +1303,29 @@ export const SuperAdminScreen: React.FC = () => {
       </Modal>
 
       {/* ==================================================================== */}
-      {/* MODAL: REGISTRAR NUEVO CLIENTE                                       */}
+      {/* MODAL: REGISTRAR NUEVO CLIENTE CON UBIGEO PERÚ                       */}
       {/* ==================================================================== */}
       <Modal visible={showCreateBizModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.formModalCard}>
+          <View style={styles.formModalCardLarge}>
             <View style={styles.modalFormHeader}>
-              <Text style={styles.modalFormTitle}>Nuevo Negocio Cliente</Text>
-              <TouchableOpacity onPress={() => setShowCreateBizModal(false)}>
+              <View>
+                <Text style={styles.modalFormTitle}>Nuevo Negocio Cliente</Text>
+                <Text style={styles.modalFormSubtitle}>Registro comercial con ubicación oficial en Perú</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCreateBizModal(false)} style={styles.closeBtnSmall}>
                 <X size={20} color={MONIQ.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-              <Text style={styles.formLabel}>NOMBRE COMERCIAL *</Text>
+            <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
+              {/* BLOQUE 1: DATOS COMERCIALES */}
+              <View style={styles.formSectionHeader}>
+                <Building size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={styles.formSectionTitle}>1. IDENTIFICACIÓN COMERCIAL</Text>
+              </View>
+
+              <Text style={styles.formLabel}>NOMBRE COMERCIAL DEL NEGOCIO *</Text>
               <TextInput
                 style={styles.formInput}
                 value={newBizName}
@@ -1308,36 +1334,33 @@ export const SuperAdminScreen: React.FC = () => {
                 placeholderTextColor={MONIQ.textMuted}
               />
 
-              <Text style={[styles.formLabel, { marginTop: 12 }]}>TITULAR / ENCARGADO</Text>
-              <TextInput
-                style={styles.formInput}
-                value={newBizOwner}
-                onChangeText={setNewBizOwner}
-                placeholder="Nombre del dueño o administrador"
-                placeholderTextColor={MONIQ.textMuted}
-              />
+              <View style={styles.formRowTwoCols}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={[styles.formLabel, { marginTop: 10 }]}>TITULAR / ENCARGADO</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newBizOwner}
+                    onChangeText={setNewBizOwner}
+                    placeholder="Nombre completo"
+                    placeholderTextColor={MONIQ.textMuted}
+                  />
+                </View>
 
-              <Text style={[styles.formLabel, { marginTop: 12 }]}>CORREO ELECTRÓNICO (LOGIN) *</Text>
-              <TextInput
-                style={styles.formInput}
-                value={newBizEmail}
-                onChangeText={setNewBizEmail}
-                placeholder="contacto@restaurante.com"
-                placeholderTextColor={MONIQ.textMuted}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { marginTop: 10 }]}>RUC (OPCIONAL)</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newBizRuc}
+                    onChangeText={setNewBizRuc}
+                    placeholder="11 dígitos"
+                    placeholderTextColor={MONIQ.textMuted}
+                    keyboardType="numeric"
+                    maxLength={11}
+                  />
+                </View>
+              </View>
 
-              <Text style={[styles.formLabel, { marginTop: 12 }]}>CONTRASEÑA DE ACCESO</Text>
-              <TextInput
-                style={styles.formInput}
-                value={newBizPassword}
-                onChangeText={setNewBizPassword}
-                placeholder="Dejar vacio para generar clave automatica"
-                placeholderTextColor={MONIQ.textMuted}
-              />
-
-              <Text style={[styles.formLabel, { marginTop: 12 }]}>TELÉFONO WHATSAPP</Text>
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>TELÉFONO WHATSAPP (+51) *</Text>
               <TextInput
                 style={styles.formInput}
                 value={newBizPhone}
@@ -1347,14 +1370,138 @@ export const SuperAdminScreen: React.FC = () => {
                 keyboardType="phone-pad"
               />
 
-              <Text style={[styles.formLabel, { marginTop: 12 }]}>CIUDAD / SEDE</Text>
+              {/* BLOQUE 2: UBICACIÓN GEOGRÁFICA (PERÚ) */}
+              <View style={[styles.formSectionHeader, { marginTop: 16 }]}>
+                <Text style={styles.formSectionTitle}>2. UBICACIÓN GEOGRÁFICA (PERÚ)</Text>
+              </View>
+
+              {/* SELECTOR DE DEPARTAMENTO */}
+              <Text style={styles.formLabel}>DEPARTAMENTO *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+                {PERU_DEPARTMENTS.map((dept) => (
+                  <TouchableOpacity
+                    key={dept.id}
+                    style={[styles.geoPill, selectedDeptId === dept.id && styles.geoPillActive]}
+                    onPress={() => {
+                      setSelectedDeptId(dept.id);
+                      const firstProv = dept.provinces[0];
+                      if (firstProv) {
+                        setSelectedProvId(firstProv.id);
+                        setSelectedDistrictName(firstProv.districts[0] || 'Centro');
+                      }
+                    }}
+                  >
+                    <Text style={[styles.geoPillText, selectedDeptId === dept.id && styles.geoPillTextActive]}>
+                      {dept.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* SELECTOR DE PROVINCIA */}
+              {(() => {
+                const dept = PERU_DEPARTMENTS.find(d => d.id === selectedDeptId) || PERU_DEPARTMENTS[0];
+                return (
+                  <>
+                    <Text style={[styles.formLabel, { marginTop: 10 }]}>PROVINCIA *</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+                      {dept.provinces.map((prov) => (
+                        <TouchableOpacity
+                          key={prov.id}
+                          style={[styles.geoPill, selectedProvId === prov.id && styles.geoPillActive]}
+                          onPress={() => {
+                            setSelectedProvId(prov.id);
+                            setSelectedDistrictName(prov.districts[0] || 'Centro');
+                          }}
+                        >
+                          <Text style={[styles.geoPillText, selectedProvId === prov.id && styles.geoPillTextActive]}>
+                            {prov.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                );
+              })()}
+
+              {/* SELECTOR DE DISTRITO */}
+              {(() => {
+                const dept = PERU_DEPARTMENTS.find(d => d.id === selectedDeptId) || PERU_DEPARTMENTS[0];
+                const prov = dept.provinces.find(p => p.id === selectedProvId) || dept.provinces[0];
+                const districts = prov?.districts || [];
+                return (
+                  <>
+                    <Text style={[styles.formLabel, { marginTop: 10 }]}>DISTRITO *</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+                      {districts.map((dist) => (
+                        <TouchableOpacity
+                          key={dist}
+                          style={[styles.geoPill, selectedDistrictName === dist && styles.geoPillActive]}
+                          onPress={() => setSelectedDistrictName(dist)}
+                        >
+                          <Text style={[styles.geoPillText, selectedDistrictName === dist && styles.geoPillTextActive]}>
+                            {dist}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </>
+                );
+              })()}
+
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>DIRECCIÓN ESPECÍFICA / LOCAL</Text>
               <TextInput
                 style={styles.formInput}
-                value={newBizCity}
-                onChangeText={setNewBizCity}
-                placeholder="Lima"
+                value={newBizAddress}
+                onChangeText={setNewBizAddress}
+                placeholder="Av. Principal 123, Piso 1"
                 placeholderTextColor={MONIQ.textMuted}
               />
+
+              {/* BLOQUE 3: CREDENCIALES Y PLAN */}
+              <View style={[styles.formSectionHeader, { marginTop: 16 }]}>
+                <Lock size={14} color={MONIQ.cyan} style={{ marginRight: 6 }} />
+                <Text style={styles.formSectionTitle}>3. ACCESO AL PORTAL & SUSCRIPCIÓN</Text>
+              </View>
+
+              <Text style={styles.formLabel}>CORREO ELECTRÓNICO (USUARIO) *</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newBizEmail}
+                onChangeText={setNewBizEmail}
+                placeholder="usuario@negocio.com"
+                placeholderTextColor={MONIQ.textMuted}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>CLAVE DE ACCESO</Text>
+              <TextInput
+                style={styles.formInput}
+                value={newBizPassword}
+                onChangeText={setNewBizPassword}
+                placeholder="Dejar vacio para clave automática"
+                placeholderTextColor={MONIQ.textMuted}
+              />
+
+              <Text style={[styles.formLabel, { marginTop: 10 }]}>VIGENCIA DE PLAN</Text>
+              <View style={styles.durationPillsRow}>
+                {[
+                  { m: 6, label: '6 Meses' },
+                  { m: 12, label: '1 Año (Recomendado)' },
+                  { m: 24, label: '2 Años' }
+                ].map((item) => (
+                  <TouchableOpacity
+                    key={item.m}
+                    style={[styles.durationPill, newBizPlanMonths === item.m && styles.durationPillActive]}
+                    onPress={() => setNewBizPlanMonths(item.m)}
+                  >
+                    <Text style={[styles.durationPillText, newBizPlanMonths === item.m && styles.durationPillTextActive]}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </ScrollView>
 
             <TouchableOpacity
@@ -1366,6 +1513,99 @@ export const SuperAdminScreen: React.FC = () => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.submitFormBtnText}>Registrar y Guardar Cliente</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ==================================================================== */}
+      {/* MODAL: AGREGAR TARJETA A LOCAL (REPARADO Y OPERATIVO)                 */}
+      {/* ==================================================================== */}
+      <Modal visible={showAddCardModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.formModalCard}>
+            <View style={styles.modalFormHeader}>
+              <View>
+                <Text style={styles.modalFormTitle}>Vincular Nueva Tarjeta</Text>
+                <Text style={styles.modalFormSubtitle}>Asigna hardware físico a una mesa o zona</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAddCardModal(false)} style={styles.closeBtnSmall}>
+                <X size={20} color={MONIQ.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* SELECCIONAR NEGOCIO SI HAY VARIOS */}
+            <Text style={styles.formLabel}>LOCAL O CLIENTE ASIGNADO *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScrollRow}>
+              {businesses.map((b) => (
+                <TouchableOpacity
+                  key={b.id}
+                  style={[styles.bizSelectorPill, (addCardTargetBizId || selectedBuyer?.id) === b.id && styles.bizSelectorPillActive]}
+                  onPress={() => setAddCardTargetBizId(b.id)}
+                >
+                  <Text style={[styles.bizSelectorPillText, (addCardTargetBizId || selectedBuyer?.id) === b.id && styles.bizSelectorPillTextActive]}>
+                    {b.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* ETIQUETA / UBICACIÓN */}
+            <Text style={[styles.formLabel, { marginTop: 12 }]}>UBICACIÓN / MESA EN SALA *</Text>
+            <View style={styles.quickTableTagsRow}>
+              {['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4', 'Barra', 'Terraza', 'Caja', 'Escritorio'].map((tag) => (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.quickTableTag, addCardLabel === tag && styles.quickTableTagActive]}
+                  onPress={() => setAddCardLabel(tag)}
+                >
+                  <Text style={[styles.quickTableTagText, addCardLabel === tag && styles.quickTableTagTextActive]}>
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.formInput}
+              value={addCardLabel}
+              onChangeText={setAddCardLabel}
+              placeholder="O escribe una etiqueta (Ej. Mesa VIP 2)"
+              placeholderTextColor={MONIQ.textMuted}
+            />
+
+            {/* DESTINO DIRECTO */}
+            <Text style={[styles.formLabel, { marginTop: 14 }]}>DESTINO DIRECTO (0ms INTERMEDIARIOS)</Text>
+            <View style={styles.destinationToggleRow}>
+              <TouchableOpacity
+                style={[styles.destToggleBtn, addCardDestination === 1 && styles.destToggleBtnActive]}
+                onPress={() => setAddCardDestination(1)}
+              >
+                <Text style={[styles.destToggleText, addCardDestination === 1 && styles.destToggleTextActive]}>
+                  Reseñas Google (5★)
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.destToggleBtn, addCardDestination === 2 && styles.destToggleBtnActive]}
+                onPress={() => setAddCardDestination(2)}
+              >
+                <Text style={[styles.destToggleText, addCardDestination === 2 && styles.destToggleTextActive]}>
+                  Carta / Menú
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.submitFormBtn}
+              onPress={handleAssignCard}
+              disabled={addCardLoading}
+            >
+              {addCardLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitFormBtnText}>Crear y Vincular Tarjeta</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -2319,6 +2559,147 @@ const styles = StyleSheet.create({
   submitFormBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontWeight: '800'
+  },
+  // =========================================================================
+  // ESTILOS ADICIONALES: FLOATING DOCK IPHONE & FORMULARIOS
+  // =========================================================================
+  floatingDockWrapper: {
+    position: 'absolute',
+    bottom: 24,
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+    zIndex: 999
+  },
+  floatingDockBar: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(17, 24, 39, 0.92)',
+    borderRadius: 36,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 12,
+    width: '100%',
+    maxWidth: 420,
+    justifyContent: 'space-around',
+    alignItems: 'center'
+  },
+  dockTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    borderRadius: 20
+  },
+  dockTabItemActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)'
+  },
+  dockTabLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: MONIQ.textSecondary,
+    marginTop: 3
+  },
+  dockTabLabelActive: {
+    color: MONIQ.accent,
+    fontWeight: '800'
+  },
+  formModalCardLarge: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '90%',
+    backgroundColor: MONIQ.surface,
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder
+  },
+  modalFormSubtitle: {
+    color: MONIQ.textSecondary,
+    fontSize: 12,
+    marginTop: 2
+  },
+  closeBtnSmall: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: MONIQ.surfaceElevated
+  },
+  formSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 18,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: MONIQ.cardBorder,
+    paddingBottom: 6
+  },
+  formSectionTitle: {
+    color: MONIQ.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1
+  },
+  formRowTwoCols: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  pillsScrollRow: {
+    marginVertical: 4
+  },
+  geoPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: MONIQ.bg,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder,
+    marginRight: 6
+  },
+  geoPillActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    borderColor: MONIQ.accent
+  },
+  geoPillText: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  geoPillTextActive: {
+    color: MONIQ.accent,
+    fontWeight: '800'
+  },
+  durationPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4
+  },
+  durationPill: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: MONIQ.bg,
+    borderWidth: 1,
+    borderColor: MONIQ.cardBorder,
+    alignItems: 'center'
+  },
+  durationPillActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    borderColor: MONIQ.accent
+  },
+  durationPillText: {
+    color: MONIQ.textSecondary,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  durationPillTextActive: {
+    color: MONIQ.accent,
     fontWeight: '800'
   }
 });

@@ -17,6 +17,7 @@ import { SuperAdminScreen } from './src/screens/admin/SuperAdminScreen';
 import { BuyerPortalScreen } from './src/screens/buyer/BuyerPortalScreen';
 import { UpdateService, UpdateCheckResult } from './src/services/updateService';
 import { UpdateModal } from './src/components/UpdateModal';
+import { NotificationService } from './src/services/notificationService';
 
 export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
@@ -34,6 +35,9 @@ export default function App() {
   });
 
   useEffect(() => {
+    // Solicitar permisos nativos de notificaciones en el arranque
+    NotificationService.requestNotificationPermissions();
+
     // Comprobar actualizaciones del sistema en segundo plano
     UpdateService.checkForUpdates().then(res => {
       if (res) {

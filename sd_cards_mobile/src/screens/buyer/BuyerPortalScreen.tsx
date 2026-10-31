@@ -410,47 +410,57 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </View>
       </View>
 
-      {/* SELECTOR SEGMENTADO ESTILO FLUTTER */}
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'cards' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('cards')}
+      {/* SELECTOR SEGMENTADO HORIZONTAL ESTILO IPHONE (SIN DESBORDAMIENTOS) */}
+      <View style={styles.tabScrollWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabScrollContent}
         >
-          <CreditCard size={14} color={activeTab === 'cards' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
-          <Text style={[styles.tabText, activeTab === 'cards' && styles.tabTextActive]}>
-            Tarjetas ({cards.length})
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'cards' && styles.tabPillActive]}
+            onPress={() => setActiveTab('cards')}
+            activeOpacity={0.8}
+          >
+            <CreditCard size={15} color={activeTab === 'cards' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabPillText, activeTab === 'cards' && styles.tabPillTextActive]}>
+              Tarjetas ({cards.length})
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'routing' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('routing')}
-        >
-          <Sliders size={14} color={activeTab === 'routing' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
-          <Text style={[styles.tabText, activeTab === 'routing' && styles.tabTextActive]}>
-            Enlaces Directos
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'routing' && styles.tabPillActive]}
+            onPress={() => setActiveTab('routing')}
+            activeOpacity={0.8}
+          >
+            <Sliders size={15} color={activeTab === 'routing' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabPillText, activeTab === 'routing' && styles.tabPillTextActive]}>
+              Enlaces Directos
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'qr' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('qr')}
-        >
-          <QrCode size={14} color={activeTab === 'qr' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
-          <Text style={[styles.tabText, activeTab === 'qr' && styles.tabTextActive]}>
-            Imprimir QR
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'qr' && styles.tabPillActive]}
+            onPress={() => setActiveTab('qr')}
+            activeOpacity={0.8}
+          >
+            <QrCode size={15} color={activeTab === 'qr' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabPillText, activeTab === 'qr' && styles.tabPillTextActive]}>
+              Imprimir QR
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'menu' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('menu')}
-        >
-          <Utensils size={14} color={activeTab === 'menu' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
-          <Text style={[styles.tabText, activeTab === 'menu' && styles.tabTextActive]}>
-            Carta
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'menu' && styles.tabPillActive]}
+            onPress={() => setActiveTab('menu')}
+            activeOpacity={0.8}
+          >
+            <Utensils size={15} color={activeTab === 'menu' ? '#FFFFFF' : MONIQ.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.tabPillText, activeTab === 'menu' && styles.tabPillTextActive]}>
+              Carta Digital
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* NOTIFICACION DE ACCION */}
@@ -968,32 +978,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2
   },
-  tabRow: {
+  tabScrollWrap: {
+    marginBottom: 16
+  },
+  tabScrollContent: {
+    paddingVertical: 2,
+    gap: 8
+  },
+  tabPill: {
     flexDirection: 'row',
-    backgroundColor: MONIQ.surface,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 14,
-    padding: 4,
-    marginBottom: 14,
+    backgroundColor: MONIQ.surface,
     borderWidth: 1,
     borderColor: MONIQ.cardBorder
   },
-  tabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10
+  tabPillActive: {
+    backgroundColor: MONIQ.accent,
+    borderColor: 'transparent',
+    shadowColor: MONIQ.accent,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3
   },
-  tabBtnActive: {
-    backgroundColor: MONIQ.accent
-  },
-  tabText: {
+  tabPillText: {
     color: MONIQ.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700'
   },
-  tabTextActive: {
+  tabPillTextActive: {
     color: '#FFFFFF',
     fontWeight: '800'
   },
