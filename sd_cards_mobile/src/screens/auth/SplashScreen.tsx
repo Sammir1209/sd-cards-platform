@@ -4,7 +4,8 @@ import {
   Text,
   View,
   Animated,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Cpu, ShieldCheck, CheckCircle2, Radio } from 'lucide-react-native';
@@ -107,7 +108,7 @@ export const SplashScreen: React.FC = () => {
       <View style={styles.topBar}>
         <View style={styles.topStatusPill}>
           <View style={styles.beaconDot} />
-          <Text style={styles.topStatusText}>S&D PLATFORM // SISTEMA ACTIVO</Text>
+          <Text style={styles.topStatusText}>SAM SERVICES // SISTEMA ACTIVO</Text>
         </View>
         <Text style={styles.versionTag}>v2.6.4 PRO</Text>
       </View>
@@ -118,7 +119,7 @@ export const SplashScreen: React.FC = () => {
         <Animated.View style={[styles.coreWrapper, { transform: [{ scale: pulseAnim }] }]}>
           <View style={styles.coreOuterRing}>
             <View style={styles.coreInnerBox}>
-              <Cpu size={46} color={MONIQ.cyan} strokeWidth={1.8} />
+              <Image source={require('../../../assets/logo.png')} style={styles.coreLogo} resizeMode="contain" />
             </View>
           </View>
         </Animated.View>
@@ -129,8 +130,8 @@ export const SplashScreen: React.FC = () => {
             <ShieldCheck size={12} color={MONIQ.accent} />
             <Text style={styles.badgeLineText}>HARDWARE ENCRIPTADO</Text>
           </View>
-          <Text style={styles.brandTitle}>S & D COMPANY</Text>
-          <Text style={styles.brandSub}>PLATAFORMA NFC & QR DINAMICO MULTIFUNCIONAL</Text>
+          <Text style={styles.brandTitle}>SAM SERVICES</Text>
+          <Text style={styles.brandSub}>PLATAFORMA NFC & QR DINAMICO INTELIGENTE</Text>
         </View>
 
         {/* CONSOLA DE DIAGNOSTICO ESTRUCTURADA */}
@@ -260,24 +261,30 @@ const styles = StyleSheet.create({
     marginBottom: 20
   },
   coreOuterRing: {
-    width: 100,
-    height: 100,
-    borderRadius: 36,
-    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+    width: 104,
+    height: 104,
+    borderRadius: 34,
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 229, 255, 0.3)',
+    borderColor: 'rgba(0, 229, 255, 0.4)',
     justifyContent: 'center',
     alignItems: 'center'
   },
   coreInnerBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 28,
-    backgroundColor: '#101420',
+    width: 88,
+    height: 88,
+    borderRadius: 26,
+    backgroundColor: '#070C18',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)'
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    overflow: 'hidden'
+  },
+  coreLogo: {
+    width: 88,
+    height: 88,
+    borderRadius: 26
   },
   titleWrap: {
     alignItems: 'center',

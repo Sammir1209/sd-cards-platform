@@ -10,7 +10,8 @@ import {
   Modal,
   Linking,
   Animated,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -554,11 +555,11 @@ export const SuperAdminScreen: React.FC = () => {
     let message = '';
 
     if (templateType === 'expiration') {
-      message = `Estimado/a *${buyer.ownerName || 'Titular'}* de *${buyer.name}*:\n\nLe saluda el equipo de S & D Company Cards. Le informamos cordialmente que su suscripción del ecosistema de tarjetas NFC y menú digital vencerá próximamente.\n\nPara garantizar la continuidad de sus tarjetas físicas y acceso a la plataforma sin interrupciones en sala, comuníquese con nosotros para renovar su plan.\n\n¡Gracias por confiar en S & D!`;
+      message = `Estimado/a *${buyer.ownerName || 'Titular'}* de *${buyer.name}*:\n\nLe saluda el equipo de Sam Services Cards. Le informamos cordialmente que su suscripción del ecosistema de tarjetas NFC y menú digital vencerá próximamente.\n\nPara garantizar la continuidad de sus tarjetas físicas y acceso a la plataforma sin interrupciones en sala, comuníquese con nosotros para renovar su plan.\n\n¡Gracias por confiar en Sam Services!`;
     } else if (templateType === 'credentials') {
-      message = `Estimado/a *${buyer.ownerName || 'Titular'}* de *${buyer.name}*:\n\nLe compartimos sus credenciales oficiales para la aplicación S & D Platform:\n\n- *Usuario / Login:* ${buyer.ownerEmail || buyer.slug || buyer.ownerPhone}\n- *Contraseña:* ${buyer.accessPassword || 'SD#2026!Pass'}\n\nCon estas credenciales puede gestionar sus tarjetas NFC y menú en tiempo real.\n\n¡Bienvenido a S & D!`;
+      message = `Estimado/a *${buyer.ownerName || 'Titular'}* de *${buyer.name}*:\n\nLe compartimos sus credenciales oficiales para la aplicación Sam Services Platform:\n\n- *Usuario / Login:* ${buyer.ownerEmail || buyer.slug || buyer.ownerPhone}\n- *Contraseña:* ${buyer.accessPassword || 'SD#2026!Pass'}\n\nCon estas credenciales puede gestionar sus tarjetas NFC y menú en tiempo real.\n\n¡Bienvenido a Sam Services!`;
     } else {
-      message = `Estimado/a *${buyer.ownerName || 'Titular'}* de *${buyer.name}*:\n\nDesde S & D Company Cards le informamos que hemos activado nuevas actualizaciones en su plataforma:\n\n- Mayor velocidad de respuesta en chips NFC.\n- Nueva presentación optimizada para menús y reseñas.\n\n¡Seguimos potenciando su negocio!`;
+      message = `Estimado/a *${buyer.ownerName || 'Titular'}* de *${buyer.name}*:\n\nDesde Sam Services Cards le informamos que hemos activado nuevas actualizaciones en su plataforma:\n\n- Mayor velocidad de respuesta en chips NFC.\n- Nueva presentación optimizada para menús y reseñas.\n\n¡Seguimos potenciando su negocio!`;
     }
 
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
@@ -982,9 +983,16 @@ export const SuperAdminScreen: React.FC = () => {
         {activeTab === 0 && (
           <View>
             <View style={styles.welcomeBanner}>
-              <View style={styles.welcomeBadge}>
-                <ShieldCheck size={12} color={MONIQ.cyan} />
-                <Text style={styles.welcomeBadgeText}>CENTRO DE MANDO</Text>
+              <View style={styles.welcomeBannerTop}>
+                <View style={styles.welcomeBadge}>
+                  <ShieldCheck size={12} color={MONIQ.cyan} />
+                  <Text style={styles.welcomeBadgeText}>SAM SERVICES • PANEL MAESTRO</Text>
+                </View>
+                <Image
+                  source={require('../../../assets/logo.png')}
+                  style={styles.adminHeaderLogo}
+                  resizeMode="contain"
+                />
               </View>
               <Text style={styles.welcomeTitle}>Bienvenido, Samir Conter</Text>
               <Text style={styles.welcomeSub}>
@@ -1541,7 +1549,7 @@ export const SuperAdminScreen: React.FC = () => {
             <View style={styles.infoSpecsCard}>
               <View style={styles.infoSpecRow}>
                 <Text style={styles.specLabel}>Versión de la Plataforma:</Text>
-                <Text style={styles.specVal}>S & D v3.4.2 (Hardware NFC Real)</Text>
+                <Text style={styles.specVal}>Sam Services v3.4.2 (Hardware NFC Real)</Text>
               </View>
               <View style={styles.infoSpecRow}>
                 <Text style={styles.specLabel}>Arquitectura Móvil:</Text>
@@ -1744,7 +1752,7 @@ export const SuperAdminScreen: React.FC = () => {
             
             {/* ENCABEZADO FIJO: TÍTULO Y BADGE DE ESTADO */}
             <View style={styles.nfcHeaderRow}>
-              <Text style={styles.nfcHeaderTitle}>ESTACIÓN NFC S & D</Text>
+              <Text style={styles.nfcHeaderTitle}>ESTACIÓN NFC SAM SERVICES</Text>
               <View style={[styles.nfcStatusBadge, { borderColor: nfcStation.statusBadgeColor + '40', backgroundColor: nfcStation.statusBadgeColor + '15' }]}>
                 <Text style={[styles.nfcStatusBadgeText, { color: nfcStation.statusBadgeColor }]}>
                   {nfcStation.statusBadgeText}
@@ -2167,6 +2175,17 @@ const styles = StyleSheet.create({
     borderColor: MONIQ.cardBorder,
     marginBottom: 16
   },
+  welcomeBannerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  adminHeaderLogo: {
+    width: 38,
+    height: 38,
+    borderRadius: 10
+  },
   welcomeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2174,8 +2193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginBottom: 10
+    alignSelf: 'flex-start'
   },
   welcomeBadgeText: {
     color: MONIQ.cyan,

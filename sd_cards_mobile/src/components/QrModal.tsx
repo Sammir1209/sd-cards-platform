@@ -11,6 +11,7 @@ import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 import { X, Copy, ExternalLink, Check } from 'lucide-react-native';
 import { MONIQ } from '../theme/colors';
+import { ENV } from '../config/env';
 
 interface QrModalProps {
   visible: boolean;
@@ -53,7 +54,7 @@ export const QrModal: React.FC<QrModalProps> = ({
           {/* CONTENEDOR DEL CÓDIGO QR CON ALTO CONTRASTE */}
           <View style={styles.qrWrapper}>
             <QRCode
-              value={targetUrl || 'https://s-d.pe'}
+              value={targetUrl || ENV.BACKEND_URL}
               size={180}
               color="#0D0E13"
               backgroundColor="#FFFFFF"

@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  Image
 } from 'react-native';
 import { Mail, Lock, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react-native';
 import { MONIQ } from '../../theme/colors';
@@ -57,9 +58,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       style={styles.container}
     >
       <View style={styles.brandBox}>
+        <Image
+          source={require('../../../assets/logo.png')}
+          style={styles.brandLogo}
+          resizeMode="contain"
+        />
         <View style={styles.brandBadge}>
           <ShieldCheck size={14} color={MONIQ.cyan} />
-          <Text style={styles.brandBadgeText}>S & D PLATFORM</Text>
+          <Text style={styles.brandBadgeText}>SAM SERVICES</Text>
         </View>
         <Text style={styles.brandTitle}>Bienvenido</Text>
         <Text style={styles.brandSub}>
@@ -124,7 +130,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
       <View style={styles.footerNote}>
         <Text style={styles.footerText}>
-          Ecosistema Seguro S & D • Conexión Cifrada
+          Ecosistema Seguro Sam Services • Conexión Cifrada
         </Text>
       </View>
     </KeyboardAvoidingView>
@@ -139,6 +145,12 @@ const styles = StyleSheet.create({
   },
   brandBox: {
     marginBottom: 28
+  },
+  brandLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 22,
+    marginBottom: 16
   },
   brandBadge: {
     flexDirection: 'row',

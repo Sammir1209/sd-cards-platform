@@ -11,7 +11,8 @@ import {
   Alert,
   Share,
   Modal,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
@@ -256,7 +257,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
           </div>
 
           <div class="footer">
-            S & D Ecosystem • s-d.pe
+            Sam Services Ecosystem
           </div>
         </body>
         </html>
@@ -286,7 +287,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
           <div class="title">${businessName}</div>
           <div class="sub">Escanea para Calificar</div>
           <img class="qr-img" src="${qrImg}" alt="QR" />
-          <div class="footer">S & D SMART QR • s-d.pe</div>
+          <div class="footer">SAM SERVICES SMART QR</div>
         </body>
         </html>
       `;
@@ -321,7 +322,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
           <div class="url">${qrUrl}</div>
           ${wifiPass ? `<div class="msg">Clave Wi-Fi: ${wifiPass}</div>` : ''}
           <div class="sep"></div>
-          <div class="foot">POTENCIADO POR S & D PLATFORM</div>
+          <div class="foot">POTENCIADO POR SAM SERVICES</div>
         </body>
         </html>
       `;
@@ -372,7 +373,14 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
       {/* HEADER DE BIENVENIDA DEL COMPRADOR */}
       <View style={styles.buyerHeader}>
         <View style={styles.buyerHeaderTop}>
-          <Text style={styles.buyerPreTitle}>PORTAL CLIENTE S & D</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={styles.buyerHeaderLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.buyerPreTitle}>PORTAL CLIENTE SAM SERVICES</Text>
+          </View>
           <View style={[styles.planBadge, isHubService ? styles.planBadgeDual : isReviewsService ? styles.planBadgeReviews : styles.planBadgeMenu]}>
             <ShieldCheck size={11} color={isHubService ? MONIQ.positive : isReviewsService ? MONIQ.gold : MONIQ.cyan} />
             <Text style={[styles.planBadgeText, { color: isHubService ? MONIQ.positive : isReviewsService ? MONIQ.gold : MONIQ.cyan }]}>
@@ -815,7 +823,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
             {isMenuService ? (
               <>
                 <View style={styles.canonicalBox}>
-                  <Text style={styles.canonicalLabel}>Ruta Nativa en Plataforma S & D:</Text>
+                  <Text style={styles.canonicalLabel}>Ruta Nativa en Plataforma Sam Services:</Text>
                   <Text style={styles.canonicalUrl}>
                     {ENV.getMenuUrl(business?.slug || 'menu')}
                   </Text>
@@ -834,7 +842,7 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
                   keyboardType="url"
                 />
                 <Text style={styles.routingHelpText}>
-                  Si dejas este campo vacío, la tarjeta abrirá tu menú en S & D. Si colocas un enlace, se redirigirá a tu sitio web.
+                  Si dejas este campo vacío, la tarjeta abrirá tu menú en Sam Services. Si colocas un enlace, se redirigirá a tu sitio web.
                 </Text>
 
                 <TouchableOpacity
@@ -1098,6 +1106,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 2
+  },
+  buyerHeaderLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    marginRight: 8
   },
   buyerPreTitle: {
     color: MONIQ.cyan,

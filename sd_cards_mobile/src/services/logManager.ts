@@ -5,7 +5,7 @@ class LogManagerService {
   private listeners: LogListener[] = [];
 
   constructor() {
-    this.addLog('[SISTEMA] Motor de diagnóstico y logs S & D iniciado.');
+    this.addLog('[SISTEMA] Motor de diagnóstico y logs Sam Services iniciado.');
   }
 
   addLog(message: string) {

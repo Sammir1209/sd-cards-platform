@@ -1,5 +1,5 @@
 /**
- * Configuracion centralizada de red y entornos para S & D Platform
+ * Configuracion centralizada de red y entornos para Sam Services Platform
  * Cuando el backend se despliegue en Render (u otro proveedor cloud),
  * la aplicacion cambiara de inmediato a la URL asignada.
  */

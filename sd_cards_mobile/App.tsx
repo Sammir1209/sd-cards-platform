@@ -76,7 +76,7 @@ export default function App() {
       <View style={styles.appHeader}>
         <View>
           <Text style={styles.headerRoleMicro}>
-            {session.role === 'superadmin' ? 'SUPERADMIN • S & D' : 'PORTAL EMPRESARIAL'}
+            {session.role === 'superadmin' ? 'SUPERADMIN • SAM SERVICES' : 'PORTAL EMPRESARIAL SAM SERVICES'}
           </Text>
           <Text style={styles.headerUserEmail}>{session.email}</Text>
         </View>

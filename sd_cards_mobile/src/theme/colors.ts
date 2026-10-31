@@ -8,7 +8,7 @@ export const MONIQ = {
   accent: '#786BFF',        // Violeta MONIQ distintivo
   primary: '#786BFF',       // Primario violeta MONIQ
   accentGlow: 'rgba(120, 107, 255, 0.15)',
-  cyan: '#00E5FF',          // Acento de hardware NFC S&D
+  cyan: '#00E5FF',          // Acento de hardware NFC Sam Services
   positive: '#35C99A',      // Verde menta de rendimiento positivo
   gold: '#F5A623',          // Dorado 5 estrellas
   textPrimary: '#F5F5FA',   // Tipografía principal de alto contraste
