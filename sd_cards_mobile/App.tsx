@@ -9,15 +9,19 @@ import {
   Image
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { LogOut } from 'lucide-react-native';
+import { LogOut, Sparkles, ArrowRight } from 'lucide-react-native';
 import { MONIQ } from './src/theme/colors';
 import { SplashScreen } from './src/screens/auth/SplashScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { SuperAdminScreen } from './src/screens/admin/SuperAdminScreen';
 import { BuyerPortalScreen } from './src/screens/buyer/BuyerPortalScreen';
+import { UpdateService, UpdateCheckResult } from './src/services/updateService';
+import { UpdateModal } from './src/components/UpdateModal';
 
 export default function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [session, setSession] = useState<{
     isAuthenticated: boolean;
     email: string;
@@ -30,7 +34,13 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Pantalla de carga interactiva con mensajes dinámicos
+    // Comprobar actualizaciones del sistema en segundo plano
+    UpdateService.checkForUpdates().then(res => {
+      if (res) {
+        setUpdateInfo(res);
+      }
+    });
+
     const timer = setTimeout(() => {
       setIsAppLoading(false);
     }, 2000);
@@ -94,6 +104,21 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+      {/* BANNER FLOTANTE DE ACTUALIZACION DISPONIBLE */}
+      {updateInfo?.hasUpdate && (
+        <TouchableOpacity
+          style={styles.updateNoticeBanner}
+          onPress={() => setShowUpdateModal(true)}
+          activeOpacity={0.85}
+        >
+          <Sparkles size={13} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.updateNoticeText}>
+            Nueva version v{updateInfo.latestVersion} lista. Toca aqui para actualizar.
+          </Text>
+          <ArrowRight size={13} color="#FFFFFF" style={{ marginLeft: 6 }} />
+        </TouchableOpacity>
+      )}
+
       {/* CONTENIDO REAL SEGÚN EL ROL */}
       <View style={styles.mainContainer}>
         {session.role === 'superadmin' ? (
@@ -102,6 +127,13 @@ export default function App() {
           <BuyerPortalScreen businessId={session.businessId || 1} />
         )}
       </View>
+
+      {/* MODAL IN-APP DE INFORMACION Y ACTUALIZACION */}
+      <UpdateModal
+        visible={showUpdateModal}
+        updateData={updateInfo}
+        onClose={() => setShowUpdateModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -152,6 +184,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: MONIQ.cardBorder
+  },
+  updateNoticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: MONIQ.accent,
+    paddingVertical: 8,
+    paddingHorizontal: 16
+  },
+  updateNoticeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800'
   },
   mainContainer: {
     flex: 1

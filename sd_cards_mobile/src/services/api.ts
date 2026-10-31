@@ -215,5 +215,26 @@ export const api = {
     return safeFetch<any>(`/menuapi/dish/${dishId}/toggle`, {
       method: 'PUT'
     });
+  },
+
+  // Version y Actualizaciones del Sistema
+  getAppVersionInfo: async () => {
+    const res = await safeFetch<any>('/systemapi/version');
+    return res.success ? res.data : null;
+  },
+
+  updateServerAppVersion: async (data: {
+    version?: string;
+    buildNumber?: number;
+    apkUrl?: string;
+    directDownloadUrl?: string;
+    changelog?: string[];
+    forceUpdate?: boolean;
+  }) => {
+    return safeFetch<any>('/systemapi/version', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
   }
 };

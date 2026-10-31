@@ -54,6 +54,8 @@ import { NoticeModal } from '../../components/NoticeModal';
 import { ErrorModal } from '../../components/ErrorModal';
 import { QrModal } from '../../components/QrModal';
 import { CameraScanModal } from '../../components/CameraScanModal';
+import { UpdateService, UpdateCheckResult } from '../../services/updateService';
+import { UpdateModal } from '../../components/UpdateModal';
 
 const { width } = Dimensions.get('window');
 
@@ -174,9 +176,12 @@ export const SuperAdminScreen: React.FC = () => {
   const radarAnim = useRef(new Animated.Value(1)).current;
   const [copiedLogs, setCopiedLogs] = useState(false);
 
-  // Telemetría de hardware
+  // Telemetría de hardware y actualizaciones
   const [activeDevice, setActiveDevice] = useState<ActiveDeviceInfo | null>(null);
   const [serverHealth, setServerHealth] = useState<'online' | 'checking' | 'error'>('online');
+  const [updateData, setUpdateData] = useState<UpdateCheckResult | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   // Inicialización y carga de datos
   useEffect(() => {
@@ -1139,6 +1144,33 @@ export const SuperAdminScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
+              <Text style={[styles.settingsSectionTitle, { marginTop: 20 }]}>INFORMACION Y ACTUALIZACIONES</Text>
+              <View style={styles.settingsItem}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsLabel}>Version del Sistema</Text>
+                  <Text style={styles.settingsValue}>
+                    v{UpdateService.getCurrentVersion()} • Build #{UpdateService.getCurrentBuild()}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.checkUpdateBtn}
+                  onPress={async () => {
+                    setCheckingUpdate(true);
+                    const res = await UpdateService.checkForUpdates();
+                    setCheckingUpdate(false);
+                    setUpdateData(res);
+                    setShowUpdateModal(true);
+                  }}
+                  disabled={checkingUpdate}
+                >
+                  {checkingUpdate ? (
+                    <ActivityIndicator size="small" color={MONIQ.cyan} />
+                  ) : (
+                    <Text style={styles.checkUpdateBtnText}>Buscar Actualizaciones</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               <Text style={[styles.settingsSectionTitle, { marginTop: 20 }]}>SEGURIDAD</Text>
               <View style={styles.settingsItem}>
                 <View>
@@ -1374,6 +1406,12 @@ export const SuperAdminScreen: React.FC = () => {
         label={qrModalData.label}
         targetUrl={qrModalData.targetUrl}
         onClose={() => setQrModalData(prev => ({ ...prev, visible: false }))}
+      />
+
+      <UpdateModal
+        visible={showUpdateModal}
+        updateData={updateData}
+        onClose={() => setShowUpdateModal(false)}
       />
     </View>
   );
@@ -2085,6 +2123,19 @@ const styles = StyleSheet.create({
   },
   syncBtn: {
     padding: 8
+  },
+  checkUpdateBtn: {
+    backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.25)'
+  },
+  checkUpdateBtnText: {
+    color: MONIQ.cyan,
+    fontSize: 11,
+    fontWeight: '800'
   },
   bottomBarContainer: {
     position: 'absolute',

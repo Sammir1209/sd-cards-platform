@@ -45,6 +45,7 @@ import {
 import { MONIQ } from '../../theme/colors';
 import { api } from '../../services/api';
 import { ENV } from '../../config/env';
+import { UpdateService } from '../../services/updateService';
 
 const { width } = Dimensions.get('window');
 
@@ -848,6 +849,13 @@ export const BuyerPortalScreen: React.FC<BuyerPortalScreenProps> = ({ businessId
         </View>
       </Modal>
 
+      {/* PIE DE VERSION DEL SISTEMA */}
+      <View style={styles.footerVersionSection}>
+        <Text style={styles.footerVersionText}>
+          Aplicacion v{UpdateService.getCurrentVersion()} • Sistema Seguro
+        </Text>
+      </View>
+
     </ScrollView>
   );
 };
@@ -1442,5 +1450,14 @@ const styles = StyleSheet.create({
     color: MONIQ.textPrimary,
     fontSize: 12,
     fontWeight: '700'
+  },
+  footerVersionSection: {
+    alignItems: 'center',
+    paddingVertical: 18
+  },
+  footerVersionText: {
+    color: MONIQ.textMuted,
+    fontSize: 11,
+    fontWeight: '600'
   }
 });
