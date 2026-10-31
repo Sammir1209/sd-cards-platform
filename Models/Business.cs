@@ -124,6 +124,9 @@ public class Business
     public string? WifiPassword { get; set; }
 
     // Relaciones
+    [System.Text.Json.Serialization.JsonIgnore]
     public ICollection<Category> Categories { get; set; } = new List<Category>();
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public ICollection<NfcCard> Cards { get; set; } = new List<NfcCard>();
 }

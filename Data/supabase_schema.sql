@@ -20,12 +20,26 @@ CREATE TABLE IF NOT EXISTS "Businesses" (
     "GoogleMapsUrl" TEXT,
     "OwnerName" VARCHAR(100),
     "OwnerPhone" VARCHAR(30),
+    "Ruc" VARCHAR(20),
+    "Department" VARCHAR(100),
+    "Province" VARCHAR(100),
+    "District" VARCHAR(100),
+    "PlanMonths" INTEGER NOT NULL DEFAULT 12,
+    "PlanExpiryDate" TIMESTAMP WITH TIME ZONE,
     "AutoRedirectReviews" BOOLEAN NOT NULL DEFAULT TRUE,
     "LogoUrl" VARCHAR(500),
     "PrimaryColor" VARCHAR(7) NOT NULL DEFAULT '#00E5FF',
     "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
     "CreatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Si la tabla "Businesses" ya existía sin las columnas de Ubigeo, RUC o Plan, las agregamos con seguridad:
+ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "Ruc" VARCHAR(20);
+ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "Department" VARCHAR(100);
+ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "Province" VARCHAR(100);
+ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "District" VARCHAR(100);
+ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "PlanMonths" INTEGER NOT NULL DEFAULT 12;
+ALTER TABLE "Businesses" ADD COLUMN IF NOT EXISTS "PlanExpiryDate" TIMESTAMP WITH TIME ZONE;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Businesses_CustomDomain_Filtered"
 ON "Businesses" ("CustomDomain")

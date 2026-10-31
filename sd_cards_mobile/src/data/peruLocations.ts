@@ -1287,8 +1287,23 @@ export function parseLocationCity(cityString?: string): { deptId: string; provId
     }
   }
 
-  // 3. ¿Coincide con un distrito?
+  // 3. ¿Coincide con un distrito? (Se verifica primero en Lima por prevalencia)
+  const limaDept = PERU_DEPARTMENTS.find(d => d.id === 'lima');
+  if (limaDept) {
+    for (const prov of limaDept.provinces) {
+      const dist = prov.districts.find(d => d.toLowerCase() === term);
+      if (dist) {
+        return {
+          deptId: limaDept.id,
+          provId: prov.id,
+          districtName: dist
+        };
+      }
+    }
+  }
+
   for (const dept of PERU_DEPARTMENTS) {
+    if (dept.id === 'lima') continue;
     for (const prov of dept.provinces) {
       const dist = prov.districts.find(d => d.toLowerCase() === term);
       if (dist) {

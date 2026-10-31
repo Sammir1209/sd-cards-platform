@@ -29,7 +29,8 @@ public class BusinessApiController : ControllerBase
                 b.Name,
                 b.Slug,
                 b.OwnerName,
-                b.OwnerPhone,
+                phone = b.OwnerPhone,
+                ownerPhone = b.OwnerPhone,
                 b.OwnerEmail,
                 b.AccessPassword,
                 b.Ruc,
@@ -45,8 +46,9 @@ public class BusinessApiController : ControllerBase
                 b.IsArchived,
                 b.WhatsappOptIn,
                 b.LastNotificationAt,
+                b.CreatedAt,
                 CardsCount = b.Cards.Count,
-                TotalTaps = b.Cards.Sum(c => c.TapCount)
+                TotalTaps = b.Cards.Sum(c => (int?)c.TapCount) ?? 0
             })
             .ToListAsync();
 
@@ -68,7 +70,8 @@ public class BusinessApiController : ControllerBase
             b.Name,
             b.Slug,
             b.OwnerName,
-            b.OwnerPhone,
+            phone = b.OwnerPhone,
+            ownerPhone = b.OwnerPhone,
             b.OwnerEmail,
             b.AccessPassword,
             b.Ruc,
@@ -87,6 +90,10 @@ public class BusinessApiController : ControllerBase
             b.WifiPassword,
             b.TemplateType,
             b.IsActive,
+            b.IsArchived,
+            b.CreatedAt,
+            CardsCount = b.Cards.Count,
+            TotalTaps = b.Cards.Sum(c => (int?)c.TapCount) ?? 0,
             Cards = b.Cards.Select(c => new
             {
                 c.Id,
@@ -268,6 +275,49 @@ public class BusinessApiController : ControllerBase
             message = business.IsActive 
                 ? "Negocio y tarjetas reactivados exitosamente."
                 : "Negocio archivado y tarjetas suspendidas preventivamente."
+        });
+    }
+
+    /// <summary>
+    /// Renueva o extiende el plan del negocio por N meses adicionales (por defecto 12 meses)
+    /// </summary>
+    [HttpPost("{id:int}/renew-plan")]
+    public async Task<IActionResult> RenewPlan(int id, [FromBody] RenewPlanRequest request)
+    {
+        var b = await _context.Businesses
+            .Include(x => x.Cards)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (b == null) return NotFound(new { error = "Negocio no encontrado." });
+
+        int additional = request.AdditionalMonths > 0 ? request.AdditionalMonths : 12;
+        DateTime baseDate = (b.PlanExpiryDate.HasValue && b.PlanExpiryDate.Value > DateTime.UtcNow)
+            ? b.PlanExpiryDate.Value
+            : DateTime.UtcNow;
+
+        b.PlanExpiryDate = baseDate.AddMonths(additional);
+        b.PlanMonths += additional;
+        b.IsActive = true;
+        b.IsArchived = false;
+
+        foreach (var card in b.Cards)
+        {
+            if (card.Status == CardStatus.SUSPENDED)
+            {
+                card.Status = CardStatus.ACTIVE;
+                card.IsActive = true;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            success = true,
+            planExpiryDate = b.PlanExpiryDate,
+            planMonths = b.PlanMonths,
+            isActive = b.IsActive,
+            message = $"Plan renovado por {additional} meses adicionales."
         });
     }
 
@@ -484,6 +534,14 @@ public class BusinessApiController : ControllerBase
         if (request.PlanMonths.HasValue && request.PlanMonths.Value > 0)
         {
             business.PlanMonths = request.PlanMonths.Value;
+        }
+
+        if (request.PlanExpiryDate.HasValue)
+        {
+            business.PlanExpiryDate = request.PlanExpiryDate.Value;
+        }
+        else if (request.PlanMonths.HasValue && request.PlanMonths.Value > 0 && !business.PlanExpiryDate.HasValue)
+        {
             business.PlanExpiryDate = business.CreatedAt.AddMonths(business.PlanMonths);
         }
 
@@ -532,11 +590,13 @@ public class BusinessApiController : ControllerBase
         return Ok(new
         {
             success = true,
+            business = business,
             businessId = business.Id,
             name = business.Name,
             slug = business.Slug,
             ownerName = business.OwnerName,
             phone = business.OwnerPhone,
+            ownerPhone = business.OwnerPhone,
             email = business.OwnerEmail,
             ruc = business.Ruc,
             department = business.Department,
@@ -580,9 +640,12 @@ public record UpdateBusinessRequest(
     string? City,
     bool? IsActive,
     int? PlanMonths,
+    DateTime? PlanExpiryDate,
     int? Services,
     string? GoogleMapsUrl = null
 );
+
+public record RenewPlanRequest(int AdditionalMonths = 12);
 
 public record RegisterBusinessRequest(
     string Name,

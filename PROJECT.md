@@ -38,9 +38,9 @@
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Persistent Authentication Session | Features 1-5 (authStorage, App bootstrap, explicit logout, api interceptor, backend token) | none | DONE |
-| M2 | Peru Ubigeo Location Dataset | Features 6-8 (peruLocations 25 regions, helper utils, safe cascading pickers) | none | IN_PROGRESS |
-| M3 | Comprehensive Client Information Editing | Features 9-15 (Business.cs model, backend PUT endpoint, renew endpoint, api.ts, ClientEditModal) | M2 | PLANNED |
-| M4 | Client Management Flow Refactoring | Features 16-21 (Instant search, multi-filters, expandable metric cards, credentials modal, renew modal, quick actions) | M1, M3 | PLANNED |
+| M2 | Peru Ubigeo Location Dataset | Features 6-8 (peruLocations 25 regions, helper utils, safe cascading pickers) | none | DONE |
+| M3 | Comprehensive Client Information Editing | Features 9-15 (Business.cs model, backend PUT endpoint, renew endpoint, api.ts, ClientEditModal) | M2 | DONE |
+| M4 | Client Management Flow Refactoring | Features 16-21 (Instant search, multi-filters, expandable metric cards, credentials modal, renew modal, quick actions) | M1, M3 | IN_PROGRESS |
 | Final | Full Verification & Adversarial Hardening | Feature 22 (dotnet build, npx tsc, verification of all acceptance criteria, adversarial audit) | M1, M2, M3, M4 | PLANNED |
 
 ## Interface Contracts

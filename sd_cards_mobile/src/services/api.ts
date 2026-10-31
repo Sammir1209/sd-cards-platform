@@ -16,6 +16,62 @@ export function setOnUnauthorized(callback: () => void): void {
   onUnauthorizedCallback = callback;
 }
 
+export interface Business {
+  id: number;
+  name: string;
+  slug: string;
+  ownerName?: string;
+  ownerPhone?: string;
+  phone?: string;
+  ownerEmail?: string;
+  email?: string;
+  accessPassword?: string;
+  ruc?: string;
+  department?: string;
+  province?: string;
+  district?: string;
+  city?: string;
+  address?: string;
+  planMonths?: number;
+  planExpiryDate?: string;
+  googleMapsUrl?: string;
+  autoRedirectReviews?: boolean;
+  customDomain?: string;
+  googlePlaceId?: string;
+  activeRoutingMode?: number;
+  wifiPassword?: string;
+  templateType?: number;
+  isActive?: boolean;
+  isArchived?: boolean;
+  whatsappOptIn?: boolean;
+  lastNotificationAt?: string;
+  createdAt?: string;
+  cardsCount?: number;
+  totalTaps?: number;
+  cards?: any[];
+}
+
+export interface UpdateBusinessData {
+  name?: string;
+  ownerName?: string;
+  phone?: string;
+  ownerPhone?: string;
+  email?: string;
+  ownerEmail?: string;
+  password?: string;
+  ruc?: string;
+  department?: string;
+  province?: string;
+  district?: string;
+  address?: string;
+  city?: string;
+  isActive?: boolean;
+  planMonths?: number;
+  planExpiryDate?: string;
+  services?: number;
+  googleMapsUrl?: string;
+}
+
 /**
  * Función robusta safeFetch:
  * Previene el error fatal "JSON Parse error: Unexpected character: <"
@@ -27,14 +83,14 @@ async function safeFetch<T = any>(endpoint: string, options?: RequestInit): Prom
   try {
     const requestHeaders: Record<string, string> = {};
     if (options?.headers) {
-      if (typeof (options.headers as any).forEach === 'function') {
-        (options.headers as any).forEach((value: string, key: string) => {
-          requestHeaders[key] = value;
-        });
-      } else if (Array.isArray(options.headers)) {
+      if (Array.isArray(options.headers)) {
         for (const [key, value] of options.headers) {
           requestHeaders[key] = value;
         }
+      } else if (typeof (options.headers as any).forEach === 'function') {
+        (options.headers as any).forEach((value: string, key: string) => {
+          requestHeaders[key] = value;
+        });
       } else {
         Object.assign(requestHeaders, options.headers);
       }
@@ -89,6 +145,38 @@ async function safeFetch<T = any>(endpoint: string, options?: RequestInit): Prom
     LogManager.addLog(`[EXCEPCIÓN] ${endpoint} -> ${errorMsg}`);
     return { success: false, error: errorMsg };
   }
+}
+
+export async function updateBusiness(
+  id: number,
+  data: UpdateBusinessData
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  return safeFetch<any>(`/businessapi/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+export async function renewPlan(
+  id: number,
+  additionalMonths: number = 12
+): Promise<{
+  success: boolean;
+  data?: {
+    success: boolean;
+    planExpiryDate: string;
+    planMonths: number;
+    isActive: boolean;
+    message?: string;
+  };
+  error?: string;
+}> {
+  return safeFetch<any>(`/businessapi/${id}/renew-plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ additionalMonths })
+  });
 }
 
 export const api = {
@@ -157,31 +245,8 @@ export const api = {
     });
   },
 
-  updateBusiness: async (
-    id: number,
-    data: {
-      name?: string;
-      ownerName?: string;
-      phone?: string;
-      email?: string;
-      password?: string;
-      ruc?: string;
-      department?: string;
-      province?: string;
-      district?: string;
-      address?: string;
-      city?: string;
-      isActive?: boolean;
-      planMonths?: number;
-      services?: number;
-    }
-  ) => {
-    return safeFetch<any>(`/businessapi/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-  },
+  updateBusiness,
+  renewPlan,
 
   deleteBusiness: async (id: number, permanent = false) => {
     return safeFetch<any>(`/businessapi/${id}?permanent=${permanent}`, {
